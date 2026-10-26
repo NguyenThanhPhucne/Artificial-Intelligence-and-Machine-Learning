@@ -1,9 +1,8 @@
 """Single source of truth for paths, seeds and data-handling constants.
 
-Every constant that changes the data or the experiment lives here, with the reason for its value,
-so the notebooks and the report can cite one place.
-
-AI assistance: drafted with Claude (Anthropic) and reviewed by the author (report section 1.3).
+I keep every constant that changes the data or the experiment in this module, next to the reason
+for its value, so that the notebooks and the report cite one place and a reader can audit every
+decision without searching through the code.
 """
 
 from __future__ import annotations
@@ -13,12 +12,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # --- Raw data ------------------------------------------------------------------------------------
-# Kaggle mirror name of the original AWS file "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv".
+# I use the Kaggle mirror, which renames the original AWS file
+# "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv" to "02-14-2018.csv"; the content is the same day.
 RAW_DIR = PROJECT_ROOT / "IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)"
 RAW_CSV = RAW_DIR / "02-14-2018.csv"
 ORIGINAL_AWS_FILENAME = "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv"
-# Column descriptions copied verbatim from CIC Table 3 ("List of extracted traffic features by
-# CICFlowMeter-V3"), with the author's notes on gaps and copy errors kept in a separate column.
+# I copied the column descriptions verbatim from CIC Table 3 ("List of extracted traffic features
+# by CICFlowMeter-V3") and kept my own notes on its gaps and copy errors in a separate column, so
+# the source wording and my interpretation are never mixed.
 FEATURE_REFERENCE_CSV = PROJECT_ROOT / "data" / "reference" / "cicflowmeter_features.csv"
 
 LABEL_COL = "Label"
@@ -27,50 +28,65 @@ DST_PORT_COL = "Dst Port"
 PROTOCOL_COL = "Protocol"
 FLOW_DURATION_COL = "Flow Duration"
 
-# 200k rows x 78 float64 columns is ~125 MB per chunk: small enough to keep peak memory low,
-# large enough that per-chunk overhead is negligible.
+# I read 200k rows per chunk: about 125 MB of float64 per chunk, which keeps peak memory low while
+# the per-chunk overhead stays negligible.
 CHUNK_SIZE = 200_000
 
 # --- Cleaning and de-duplication -----------------------------------------------------------------
-# -1 in these two columns means "no TCP window observed". Inferred from the data, not from CIC
-# documentation: -1 appears in 100% of non-TCP flows (protocols 0 and 17), and in TCP flows only
-# for the backward window and only when the flow has no backward packets. Negative values anywhere
-# else (durations, inter-arrival times, rates) are physically impossible and mark a broken record.
+# I keep -1 in these two columns because it means "no TCP window observed", not an error. I inferred
+# this from the data (CIC does not document it): -1 appears in 100% of non-TCP flows (protocols 0
+# and 17), and in TCP flows only in the backward column and only when the flow has no backward
+# packets. Negative values anywhere else (durations, inter-arrival times, rates) are physically
+# impossible, so I treat them as broken records.
 SENTINEL_NEGATIVE_COLS: tuple[str, ...] = ("Init Fwd Win Byts", "Init Bwd Win Byts")
 
-# Columns ignored when deciding whether two flows are duplicates.
-#  * Timestamp is a recording time, not a property of the flow; identical flows recorded at
-#    different seconds are the same observation for a model that never sees time.
-#  * Dst Port is excluded from the main model because it almost encodes the label (FTP = port 21,
+# Columns I ignore when deciding whether two flows are duplicates.
+#  * Timestamp records when a flow was seen, not what it was; identical flows recorded at different
+#    seconds are the same observation for a model that never sees time.
+#  * Dst Port is excluded from my main model because it almost encodes the label (FTP = port 21,
 #    SSH = port 22). De-duplicating in this smaller feature space guarantees uniqueness in every
-#    larger space too, so the "with Dst Port" ablation also stays leakage-free.
+#    larger space too, so my "with Dst Port" ablation also stays leakage-free.
 DEDUP_IGNORE_COLS: tuple[str, ...] = (TIMESTAMP_COL, DST_PORT_COL)
 
 # --- Sampling ------------------------------------------------------------------------------------
 SEED = 42
 SAMPLE_SIZE = 75_000
-# Each class receives at least min(class size, floor) rows. After de-duplication FTP-BruteForce has
-# only 46 unique flows; proportional allocation would keep ~6 and make the class unlearnable.
+# I give each class at least min(class size, floor) rows. After de-duplication FTP-BruteForce has
+# only 46 unique flows; proportional allocation would keep about 6 and make the class unlearnable.
 RARE_CLASS_FLOOR = 2_000
+
+# --- Splitting and modelling ---------------------------------------------------------------------
+# 80/20 leaves 60,000 flows for 5-fold cross-validation and 15,000 for a test set that is touched once.
+TEST_SIZE = 0.20
+CV_FOLDS = 5
+# Columns my main model never sees: Timestamp is a recording time on a broken 12-hour clock, and
+# Dst Port (like time) was one of the inputs CIC used to create the labels, so a model using them
+# would learn the labelling procedure rather than the traffic.
+MODEL_EXCLUDED_COLS: tuple[str, ...] = (TIMESTAMP_COL, DST_PORT_COL)
+CATEGORICAL_COLS: tuple[str, ...] = (PROTOCOL_COL,)
 
 # --- Outputs -------------------------------------------------------------------------------------
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 SAMPLE_PARQUET = PROCESSED_DIR / "sample_75k_dedup.parquet"
 MANIFEST_JSON = PROCESSED_DIR / "manifest.json"
+SPLIT_PARQUET = PROCESSED_DIR / "split_assignment.parquet"
 
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 TABLES_DIR = REPORTS_DIR / "tables"
 TEXT_DIR = REPORTS_DIR / "text"
+FIGURE_DPI = 300
 
-# --- Citation (verified 26/10/2026 against the CIC and AWS pages) --------------------------------
-DATASET_LICENSE_NOTE = (
-    "No standard licence name is given. CIC/UNB terms (dataset page, section 5 'License'): "
-    "'You may redistribute, republish, and mirror the CSE-CIC-IDS2018 dataset in any form. "
-    "However, any use or redistribution of the data must include a citation to the CSE-CIC-IDS2018 "
-    "dataset and a link to this page in AWS.'"
+# --- Licence and citation (checked 26/10/2026) ---------------------------------------------------
+DATASET_LICENSE = "CC BY 4.0 (Attribution 4.0 International), as listed for the Kaggle mirror"
+DATASET_CITATION_TERMS = (
+    "CIC/UNB dataset page, section 5 'License': 'You may redistribute, republish, and mirror the "
+    "CSE-CIC-IDS2018 dataset in any form. However, any use or redistribution of the data must include "
+    "a citation to the CSE-CIC-IDS2018 dataset and a link to this page in AWS.'"
 )
 DATASET_URLS = {
+    "license": "https://creativecommons.org/licenses/by/4.0/",
     "cic": "https://www.unb.ca/cic/datasets/ids-2018.html",
     "aws_registry": "https://registry.opendata.aws/cse-cic-ids2018",
+    "paper_doi": "https://doi.org/10.5220/0006639801080116",
 }

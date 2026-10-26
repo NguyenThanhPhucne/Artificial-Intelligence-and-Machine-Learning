@@ -1,0 +1,7 @@
+,Benign,FTP-BruteForce,SSH-Bruteforce
+Fwd Pkt Len Max,1.23,0.0,0.22
+Init Bwd Win Byts,22.74,0.0,0.03
+Bwd Pkt Len Max,0.0,0.0,0.22
+Init Fwd Win Byts,2.94,0.0,0.22
+Fwd Header Len,3.69,0.0,6.27
+Bwd Header Len,7.27,0.0,0.24

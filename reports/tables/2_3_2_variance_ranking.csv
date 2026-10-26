@@ -1,0 +1,21 @@
+,variance (symlog)
+Bwd IAT Tot,50.51
+Bwd IAT Max,44.52
+Bwd IAT Std,39.26
+Fwd IAT Tot,39.2
+Bwd IAT Mean,36.88
+Fwd IAT Std,36.49
+Fwd IAT Max,35.06
+Idle Max,33.63
+Idle Mean,33.52
+Flow IAT Std,33.31
+Idle Min,33.19
+Fwd IAT Mean,30.57
+Bwd IAT Min,21.24
+Fwd IAT Min,20.71
+Init Fwd Win Byts,19.44
+Flow IAT Min,18.43
+Init Bwd Win Byts,18.35
+Active Max,18.24
+Flow Duration,17.54
+Pkt Len Var,16.49

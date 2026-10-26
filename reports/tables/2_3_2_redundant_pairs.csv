@@ -1,0 +1,10 @@
+feature_a,feature_b,r
+Idle Max,Idle Mean,1.0
+Idle Min,Idle Mean,0.9999
+Idle Min,Idle Max,0.9998
+Bwd IAT Tot,Bwd IAT Max,0.9979
+Fwd IAT Tot,Fwd IAT Max,0.9954
+Bwd IAT Mean,Bwd IAT Max,0.9948
+Bwd IAT Mean,Bwd IAT Tot,0.9937
+Fwd IAT Mean,Fwd IAT Max,0.9925
+Fwd IAT Mean,Fwd IAT Tot,0.9858

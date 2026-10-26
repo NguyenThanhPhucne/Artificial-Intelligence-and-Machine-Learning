@@ -1,0 +1,6 @@
+class,dst_port,percent_of_class,distinct_ports_in_class
+Benign,53,28.368,2544
+Benign,80,18.731,2544
+Benign,3389,17.012,2544
+FTP-BruteForce,21,100.0,1
+SSH-Bruteforce,22,100.0,1

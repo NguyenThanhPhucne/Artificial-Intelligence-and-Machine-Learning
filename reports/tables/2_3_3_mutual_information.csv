@@ -1,0 +1,67 @@
+,MI as % of H(Y)
+Fwd Pkt Len Max,98.82
+Init Bwd Win Byts,98.8
+Bwd Pkt Len Max,98.74
+Init Fwd Win Byts,98.64
+Fwd Header Len,98.58
+Bwd Seg Size Avg,98.37
+Subflow Bwd Byts,98.35
+Bwd Pkt Len Mean,98.34
+Bwd Header Len,98.33
+TotLen Bwd Pkts,98.28
+Bwd Pkt Len Std,98.06
+Pkt Len Max,98.05
+Subflow Fwd Byts,97.88
+TotLen Fwd Pkts,97.86
+Pkt Len Std,97.27
+Pkt Len Var,97.27
+Fwd Seg Size Min,97.26
+Fwd Pkt Len Std,97.05
+Pkt Len Mean,96.59
+Fwd Pkt Len Mean,96.3
+Fwd Seg Size Avg,96.29
+Pkt Size Avg,95.77
+Fwd Act Data Pkts,95.26
+Bwd IAT Tot,92.11
+Subflow Bwd Pkts,92.08
+Tot Bwd Pkts,91.98
+Bwd IAT Min,88.61
+Tot Fwd Pkts,88.24
+Subflow Fwd Pkts,88.21
+Flow Duration,87.61
+Bwd IAT Mean,87.55
+Fwd IAT Tot,87.07
+Bwd IAT Std,85.94
+Fwd IAT Mean,85.3
+Flow IAT Mean,84.34
+Fwd IAT Std,82.16
+Flow Byts/s,81.05
+Bwd IAT Max,77.88
+Flow Pkts/s,77.67
+Fwd Pkts/s,77.56
+Bwd Pkts/s,76.1
+Flow IAT Std,76.08
+Fwd IAT Max,68.68
+Flow IAT Max,66.89
+Flow IAT Min,62.37
+Fwd IAT Min,54.43
+PSH Flag Cnt,22.87
+Pkt Len Min,11.47
+Fwd Pkt Len Min,11.43
+Bwd Pkt Len Min,11.12
+Idle Max,6.12
+Idle Mean,6.12
+ACK Flag Cnt,6.12
+Idle Min,5.66
+Active Mean,5.45
+Active Min,5.2
+Active Max,5.04
+Idle Std,3.87
+Active Std,3.78
+ECE Flag Cnt,2.89
+RST Flag Cnt,2.73
+SYN Flag Cnt,1.45
+Fwd PSH Flags,1.31
+Down/Up Ratio,1.25
+URG Flag Cnt,0.54
+FIN Flag Cnt,0.0

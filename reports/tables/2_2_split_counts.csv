@@ -1,0 +1,5 @@
+Label,train,test,train %,test %
+Benign,50857,12715,84.76,84.77
+FTP-BruteForce,37,9,0.06,0.06
+SSH-Bruteforce,9106,2276,15.18,15.17
+Total,60000,15000,100.0,100.0

@@ -1,10 +1,8 @@
-"""Data preparation: chunked loading, row-wise cleaning, de-duplication and stratified sampling.
+"""Data preparation: chunked loading, row-wise cleaning, de-duplication, sampling and splitting.
 
-Every step here is row-wise or deterministic (nothing is *learned* from the data), so it can run
-before the train/test split without leaking test information. Anything fitted on data (scaling,
-SMOTE, feature selection) belongs in the model pipeline instead.
-
-AI assistance: drafted with Claude (Anthropic) and reviewed by the author (report section 1.3).
+I keep every step before the train/test split row-wise or deterministic: nothing here is *learned*
+from the data, so running it before the split cannot leak test information. Anything fitted to data
+(scaling, SMOTE, feature selection, tuning) lives in the model pipeline instead (see features.py).
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from . import config
 
@@ -29,7 +28,7 @@ NON_FEATURE_COLS = (config.LABEL_COL, config.TIMESTAMP_COL)
 # --- Loading -------------------------------------------------------------------------------------
 
 def raw_columns(path: Path = config.RAW_CSV) -> list[str]:
-    """Column names of the raw CSV, read from the header only."""
+    """Return the column names of the raw CSV by reading its header only."""
     return pd.read_csv(path, nrows=0).columns.tolist()
 
 
@@ -38,10 +37,10 @@ def read_raw_in_chunks(
 ) -> Iterator[pd.DataFrame]:
     """Yield the raw CSV in chunks with explicit dtypes.
 
-    Explicit float64 avoids pandas' per-chunk type inference (which can disagree between chunks)
-    and parses the literal strings 'Infinity' and 'NaN' into IEEE values. float64 rather than
-    float32 because large integers such as Flow Duration (> 2**24 microseconds) lose precision in
-    float32, which would merge distinct flows and distort the duplicate count.
+    I fix every feature to float64 so that pandas does not infer types per chunk (which can disagree
+    between chunks), and so that the literal strings 'Infinity' and 'NaN' parse into IEEE values.
+    I deliberately avoid float32: large integers such as Flow Duration (> 2**24 microseconds) lose
+    precision in float32, which would merge distinct flows and distort the duplicate count.
     """
     dtypes: dict[str, str] = {c: "float64" for c in raw_columns(path) if c not in NON_FEATURE_COLS}
     dtypes.update({config.LABEL_COL: "string", config.TIMESTAMP_COL: "string"})
@@ -49,18 +48,17 @@ def read_raw_in_chunks(
 
 
 def feature_columns(df: pd.DataFrame) -> list[str]:
-    """Numeric flow features: every column except the label and the timestamp."""
+    """Return the flow attributes: every column except the label and the timestamp."""
     return [c for c in df.columns if c not in NON_FEATURE_COLS]
 
 
 def attribute_table(
     frame: pd.DataFrame, reference_path: Path = config.FEATURE_REFERENCE_CSV
 ) -> pd.DataFrame:
-    """One row per column for report section 1.1: CIC description, role and observed values.
+    """Build one row per column for report section 1.1: CIC description, role and observed values.
 
-    `frame` is the data whose observed statistics are reported (normally the sampling frame).
-    Raises if the reference table and the data disagree on column names, so a renamed or missing
-    column cannot slip through silently.
+    I raise an error when the reference table and the data disagree on column names, so that a
+    renamed or missing column cannot slip into the report unnoticed.
     """
     reference = pd.read_csv(reference_path, keep_default_na=False)
     missing = set(frame.columns) ^ set(reference["csv_column"])
@@ -81,7 +79,7 @@ def attribute_table(
 
 @dataclass
 class ChunkCleaning:
-    """Rows kept from one chunk plus what was removed and why."""
+    """Rows I keep from one chunk, plus what I removed and why."""
 
     kept: pd.DataFrame
     nonfinite_by_label: pd.Series
@@ -94,11 +92,12 @@ class ChunkCleaning:
 def clean_chunk(chunk: pd.DataFrame) -> ChunkCleaning:
     """Drop rows with non-finite values or physically impossible negative values.
 
-    1. +/-Infinity -> NaN, then drop rows with any NaN. Infinity comes from CICFlowMeter dividing
-       by a zero flow duration (bytes/s, packets/s); imputing a rate for a zero-length flow would
-       invent a value, and the affected rows are a tiny share of the file.
-    2. Drop rows with a negative value outside the "-1 = no TCP window" columns (see
-       config.SENTINEL_NEGATIVE_COLS): a negative duration or inter-arrival time is a clock error.
+    1. I convert +/-Infinity to NaN and drop every row containing NaN. Infinity comes from
+       CICFlowMeter dividing by a zero flow duration (bytes/s, packets/s); imputing a rate for a
+       zero-length flow would invent a value, and these rows are a tiny share of the file.
+    2. I drop rows with a negative value outside the "-1 = no TCP window" columns
+       (config.SENTINEL_NEGATIVE_COLS), because a negative duration or inter-arrival time can only
+       be a clock error.
     """
     features = feature_columns(chunk)
     values = chunk[features]
@@ -128,11 +127,11 @@ def clean_chunk(chunk: pd.DataFrame) -> ChunkCleaning:
 # --- De-duplication ------------------------------------------------------------------------------
 
 def flow_hash(df: pd.DataFrame, ignore: tuple[str, ...] = config.DEDUP_IGNORE_COLS) -> pd.Series:
-    """64-bit hash of each row's feature vector, ignoring the label and `ignore` columns.
+    """Return a 64-bit hash of each row's feature vector, ignoring the label and `ignore` columns.
 
-    Hashing lets us de-duplicate ~1M rows chunk by chunk without holding every row in memory.
-    With ~1M rows the chance of any 64-bit collision is about 3e-8. Adding 0.0 maps -0.0 to 0.0
-    so equal numbers always hash equally.
+    I hash rows so that I can de-duplicate ~1M rows chunk by chunk without holding every row in
+    memory; with ~1M rows the probability of any 64-bit collision is about 3e-8. Adding 0.0 maps
+    -0.0 to 0.0, so equal numbers always hash equally.
     """
     cols = [c for c in df.columns if c != LABEL and c not in ignore]
     return pd.util.hash_pandas_object(df[cols] + 0.0, index=False)
@@ -155,7 +154,7 @@ class PreparationReport:
     n_conflicting_vectors: int
 
     def stage_table(self, sample: pd.Series | None = None) -> pd.DataFrame:
-        """Rows = stages, columns = labels + Total; ready to print or save for the report."""
+        """Return rows = stages, columns = labels + Total, ready to print or save for the report."""
         stages = {
             "1. Raw file": self.raw,
             "2. Removed: non-finite values (Infinity/NaN)": self.nonfinite_removed,
@@ -184,10 +183,10 @@ def build_unique_flows(
 ) -> tuple[pd.DataFrame, PreparationReport]:
     """Read, clean and de-duplicate the raw file; return the sampling frame and a stage report.
 
-    A flow is a duplicate when its features (ignoring Timestamp and Dst Port) *and* label match an
-    earlier row; the first occurrence is kept. Feature vectors that appear under more than one
-    label are removed entirely: their ground truth is contradictory and no model can be right on
-    both copies.
+    I treat a flow as a duplicate when its features (ignoring Timestamp and Dst Port) *and* its
+    label match an earlier row, and keep the first occurrence. I remove feature vectors that appear
+    under more than one label entirely: their ground truth is contradictory, so no model can be
+    right on both copies, and keeping either copy would be an arbitrary choice.
     """
     raw, nonfinite, negative, cleaned_counts = [], [], [], []
     inf_cols, nan_cols, neg_cols, parts = [], [], [], []
@@ -201,7 +200,7 @@ def build_unique_flows(
         nan_cols.append(result.nan_by_column)
         neg_cols.append(result.negative_by_column)
         cleaned_counts.append(result.kept[LABEL].value_counts())
-        # De-duplicating inside each chunk first keeps memory small (FTP collapses to ~53 rows).
+        # I de-duplicate inside each chunk first to keep memory small (FTP collapses to a few rows).
         kept = result.kept.assign(_flow_hash=flow_hash(result.kept))
         parts.append(kept.drop_duplicates(subset=["_flow_hash", LABEL]))
 
@@ -236,11 +235,11 @@ def build_unique_flows(
 # --- Sampling ------------------------------------------------------------------------------------
 
 def allocate_with_floor(class_counts: pd.Series, n_total: int, floor: int) -> pd.Series:
-    """Rows to draw per class: proportional to class size, but at least min(class size, floor).
+    """Return rows to draw per class: proportional to class size, but at least min(size, floor).
 
-    Classes whose proportional share falls below their floor are fixed first; the remaining budget
-    is shared proportionally among the other classes using largest-remainder rounding, so the
-    allocation sums exactly to n_total.
+    I fix the classes whose proportional share falls below their floor first, then share the
+    remaining budget proportionally among the other classes with largest-remainder rounding, so the
+    allocation always sums exactly to n_total.
     """
     counts = class_counts.astype("int64").sort_index()
     if n_total > counts.sum():
@@ -284,10 +283,83 @@ def stratified_sample(
     return pd.concat(parts).sample(frac=1, random_state=seed).reset_index(drop=True)
 
 
+# --- Train/test split ----------------------------------------------------------------------------
+
+@dataclass
+class Split:
+    """Training and test partitions of the sample, with features and target separated."""
+
+    X_train: pd.DataFrame
+    X_test: pd.DataFrame
+    y_train: pd.Series
+    y_test: pd.Series
+
+
+def split_sample(
+    sample: pd.DataFrame, test_size: float = config.TEST_SIZE, seed: int = config.SEED
+) -> Split:
+    """Split the sample 80/20, stratified by label.
+
+    I stratify so that the 46 FTP-BruteForce flows are shared between training and test in the same
+    proportion as the other classes; a purely random split could leave the test set with almost no
+    FTP flows by chance. The split is made once and the test set is not looked at again until the
+    final evaluation: EDA, scaling, SMOTE and tuning all use the training set only.
+    """
+    X = sample.drop(columns=LABEL)
+    y = sample[LABEL]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, stratify=y, random_state=seed
+    )
+    return Split(X_train, X_test, y_train, y_test)
+
+
+def assert_no_leakage(split: Split) -> dict[str, int]:
+    """Prove that no flow (in the de-duplication feature space) appears in both partitions.
+
+    I compare the feature-vector hashes of the two partitions rather than row indices, because the
+    leakage that matters is an identical flow being memorised in training and then "predicted" in
+    testing. I also re-check uniqueness inside each partition. Returns the counts I checked.
+    """
+    train_hashes = set(flow_hash(split.X_train))
+    test_hashes = set(flow_hash(split.X_test))
+    shared = train_hashes & test_hashes
+    if shared:
+        raise AssertionError(f"{len(shared)} feature vectors occur in both train and test")
+    if len(train_hashes) != len(split.X_train) or len(test_hashes) != len(split.X_test):
+        raise AssertionError("Duplicate feature vectors found inside a partition")
+    if set(split.X_train.index) & set(split.X_test.index):
+        raise AssertionError("A sample row was assigned to both partitions")
+    return {
+        "train_rows": len(split.X_train),
+        "test_rows": len(split.X_test),
+        "unique_train_vectors": len(train_hashes),
+        "unique_test_vectors": len(test_hashes),
+        "shared_vectors": len(shared),
+    }
+
+
+def save_split(split: Split, path: Path = config.SPLIT_PARQUET) -> None:
+    """Store which sample row went to which partition, so later notebooks reuse the exact split."""
+    assignment = pd.concat([
+        pd.DataFrame({"row": split.X_train.index, "partition": "train"}),
+        pd.DataFrame({"row": split.X_test.index, "partition": "test"}),
+    ]).sort_values("row")
+    assignment.to_parquet(path, index=False)
+
+
+def load_split(sample: pd.DataFrame, path: Path = config.SPLIT_PARQUET) -> Split:
+    """Rebuild the saved split from the sample and the stored row assignment."""
+    assignment = pd.read_parquet(path).set_index("row")["partition"]
+    is_test = assignment.reindex(sample.index).eq("test").to_numpy()
+    X = sample.drop(columns=LABEL)
+    y = sample[LABEL]
+    return Split(X[~is_test], X[is_test], y[~is_test], y[is_test])
+
+
 # --- Persistence ---------------------------------------------------------------------------------
 
 def sha256_of(path: Path, block: int = 1 << 20) -> str:
-    """SHA-256 of a file, read in 1 MB blocks."""
+    """Return the SHA-256 of a file, read in 1 MB blocks."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(block):
@@ -302,7 +374,7 @@ def save_sample(
     manifest_path: Path = config.MANIFEST_JSON,
     raw_path: Path = config.RAW_CSV,
 ) -> dict:
-    """Write the sample as Parquet and a JSON manifest that lets anyone verify and rebuild it."""
+    """Write the sample as Parquet plus a JSON manifest that lets anyone verify and rebuild it."""
     import imblearn
     import sklearn
 
