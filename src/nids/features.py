@@ -14,7 +14,7 @@ from sklearn.base import BaseEstimator
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import Pipeline as SkPipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
 from . import config
 
@@ -47,6 +47,11 @@ def symlog(values: pd.DataFrame | np.ndarray) -> pd.DataFrame | np.ndarray:
     return np.sign(values) * np.log1p(np.abs(values))
 
 
+def symlog_transformer() -> FunctionTransformer:
+    """Wrap symlog as a pipeline step that keeps feature names (for importance plots later)."""
+    return FunctionTransformer(symlog, feature_names_out="one-to-one")
+
+
 def build_preprocessor(X: pd.DataFrame, include_dst_port: bool = False) -> ColumnTransformer:
     """Build the unfitted column transformer: one-hot Protocol, drop constants and scale numerics.
 
@@ -61,8 +66,11 @@ def build_preprocessor(X: pd.DataFrame, include_dst_port: bool = False) -> Colum
     """
     categorical, numeric = model_columns(X, include_dst_port)
     # A plain scikit-learn Pipeline is enough here; the imblearn Pipeline is only needed at the
-    # outer level, where the resampler sits.
+    # outer level, where the resampler sits. The "log" step is a pass-through by default; I let the
+    # hyper-parameter search switch it to symlog, because my EDA showed heavy right tails that can
+    # dominate a linear model even after standardisation (trees are unaffected by monotonic maps).
     numeric_steps = SkPipeline([
+        ("log", "passthrough"),
         ("drop_constant", VarianceThreshold(threshold=0.0)),
         ("scale", StandardScaler()),
     ])

@@ -71,6 +71,10 @@ SAMPLE_PARQUET = PROCESSED_DIR / "sample_75k_dedup.parquet"
 MANIFEST_JSON = PROCESSED_DIR / "manifest.json"
 SPLIT_PARQUET = PROCESSED_DIR / "split_assignment.parquet"
 
+# Fitted searches are cached here (git-ignored); notebooks rebuild them when FORCE_RETRAIN is set.
+MODELS_DIR = PROJECT_ROOT / "models"
+N_SEARCH_ITER = 20
+
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 TABLES_DIR = REPORTS_DIR / "tables"

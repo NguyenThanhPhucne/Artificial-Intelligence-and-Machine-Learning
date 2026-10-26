@@ -232,6 +232,27 @@ def build_unique_flows(
     return flows, report
 
 
+def build_cleaned_rows(
+    path: Path = config.RAW_CSV, chunksize: int = config.CHUNK_SIZE
+) -> pd.DataFrame:
+    """Return every row that survives row-wise cleaning, *without* de-duplication.
+
+    I only use this for the ablation that shows what a naive pipeline would report: sampling and
+    splitting these rows puts copies of the same flow in both the training and the test set.
+    """
+    parts = [clean_chunk(chunk).kept for chunk in read_raw_in_chunks(path, chunksize)]
+    rows = pd.concat(parts, ignore_index=True)
+    rows[LABEL] = rows[LABEL].astype("category")
+    return rows
+
+
+def train_test_overlap(split: Split) -> pd.Series:
+    """Share of test flows (per class) whose feature vector also occurs in the training set."""
+    train_hashes = set(flow_hash(split.X_train))
+    in_train = flow_hash(split.X_test).isin(train_hashes)
+    return in_train.groupby(split.y_test.to_numpy(), observed=True).mean()
+
+
 # --- Sampling ------------------------------------------------------------------------------------
 
 def allocate_with_floor(class_counts: pd.Series, n_total: int, floor: int) -> pd.Series:
