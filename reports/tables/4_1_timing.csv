@@ -1,0 +1,4 @@
+model,search_seconds,fit_seconds,predict_ms_per_1000
+Logistic Regression,30.2093,0.7783,1.2344
+Decision Tree,20.354,0.4716,0.3693
+Random Forest,176.2684,3.7636,2.7072

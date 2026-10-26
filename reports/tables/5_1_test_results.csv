@@ -1,0 +1,4 @@
+model,accuracy,f1_weighted,f1_macro,precision_macro,recall_macro,recall_ftp,f1_macro_ci_low,f1_macro_ci_high,inference_ms_per_1000
+Logistic Regression,0.9998,0.999807,0.966554,0.939248,0.999921,1.0,0.916588,1.0,1.192967
+Decision Tree,0.999867,0.999867,0.999827,0.999827,0.999827,1.0,0.999568,1.0,0.513172
+Random Forest,0.999933,0.999935,0.982443,0.966667,0.999974,1.0,0.952342,1.0,2.955011

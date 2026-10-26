@@ -1,0 +1,10 @@
+model,true,predicted,flows
+Logistic Regression,Benign,FTP-BruteForce,5
+Logistic Regression,Benign,SSH-Bruteforce,1
+Logistic Regression,SSH-Bruteforce,Benign,3
+Decision Tree,Benign,FTP-BruteForce,1
+Decision Tree,Benign,SSH-Bruteforce,4
+Decision Tree,FTP-BruteForce,SSH-Bruteforce,1
+Decision Tree,SSH-Bruteforce,Benign,3
+Random Forest,Benign,FTP-BruteForce,1
+Random Forest,SSH-Bruteforce,Benign,3

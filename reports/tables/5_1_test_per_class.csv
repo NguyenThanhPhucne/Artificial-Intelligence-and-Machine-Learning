@@ -1,0 +1,10 @@
+,,precision,recall,f1-score,support
+Logistic Regression,Benign,1.0,0.999764,0.999882,12715.0
+Logistic Regression,FTP-BruteForce,0.818182,1.0,0.9,9.0
+Logistic Regression,SSH-Bruteforce,0.999561,1.0,0.99978,2276.0
+Decision Tree,Benign,0.999921,0.999921,0.999921,12715.0
+Decision Tree,FTP-BruteForce,1.0,1.0,1.0,9.0
+Decision Tree,SSH-Bruteforce,0.999561,0.999561,0.999561,2276.0
+Random Forest,Benign,1.0,0.999921,0.999961,12715.0
+Random Forest,FTP-BruteForce,0.9,1.0,0.947368,9.0
+Random Forest,SSH-Bruteforce,1.0,1.0,1.0,2276.0

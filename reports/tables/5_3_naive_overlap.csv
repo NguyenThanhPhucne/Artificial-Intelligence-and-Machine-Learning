@@ -1,0 +1,4 @@
+,naive test flows,share already in training set
+Benign,9531,0.123597
+FTP-BruteForce,2776,0.99964
+SSH-Bruteforce,2693,0.509469

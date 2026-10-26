@@ -1,0 +1,16 @@
+,impurity_importance,permutation_drop_f1_macro,permutation_std
+Fwd Seg Size Min,0.128094,0.010979,0.010813
+Init Fwd Win Byts,0.075592,0.0,0.0
+Fwd Header Len,0.071759,-0.003511,0.007023
+TotLen Fwd Pkts,0.065792,-0.007023,0.008601
+Bwd Header Len,0.065637,5.2e-05,4.2e-05
+Fwd Act Data Pkts,0.065558,0.0,0.0
+Subflow Fwd Pkts,0.059693,-0.014046,0.007023
+Tot Fwd Pkts,0.051486,0.0,0.0
+Subflow Bwd Pkts,0.044085,0.0,0.0
+Subflow Fwd Byts,0.039113,0.0,0.0
+Subflow Bwd Byts,0.01816,0.0,0.0
+Flow Pkts/s,0.018155,0.0,0.0
+Pkt Len Std,0.018009,0.0,0.0
+TotLen Bwd Pkts,0.017353,0.0,0.0
+Flow IAT Mean,0.016713,0.0,0.0

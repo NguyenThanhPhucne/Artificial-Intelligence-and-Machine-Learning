@@ -1,0 +1,16 @@
+if Fwd Seg Size Min <= 30.00:
+|   → Benign
+else (Fwd Seg Size Min > 30.00):
+|   if Bwd Pkt Len Max <= 808.00:
+|   |   if Bwd Pkts/s <= 14,693.26:
+|   |   |   if Flow Pkts/s <= 8,903.76:
+|   |   |   |   → Benign (subtree truncated)
+|   |   |   else (Flow Pkts/s > 8,903.76):
+|   |   |   |   → SSH-Bruteforce (subtree truncated)
+|   |   else (Bwd Pkts/s > 14,693.26):
+|   |   |   if Init Fwd Win Byts <= 17,537.50:
+|   |   |   |   → Benign (subtree truncated)
+|   |   |   else (Init Fwd Win Byts > 17,537.50):
+|   |   |   |   → FTP-BruteForce
+|   else (Bwd Pkt Len Max > 808.00):
+|   |   → SSH-Bruteforce

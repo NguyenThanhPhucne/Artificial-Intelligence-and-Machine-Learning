@@ -1,0 +1,7 @@
+,Logistic Regression,Logistic Regression,Decision Tree,Decision Tree,Random Forest,Random Forest
+,f1_macro,recall_ftp,f1_macro,recall_ftp,f1_macro,recall_ftp
+fold 1,0.9582,1.0,0.9519,0.8571,0.9777,1.0
+fold 2,1.0,1.0,0.9999,1.0,1.0,1.0
+fold 3,0.9778,1.0,1.0,1.0,1.0,1.0
+fold 4,0.9801,1.0,0.9998,1.0,0.9998,1.0
+fold 5,0.9804,1.0,0.9999,1.0,1.0,1.0

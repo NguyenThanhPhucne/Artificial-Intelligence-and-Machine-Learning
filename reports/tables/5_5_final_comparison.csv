@@ -1,0 +1,4 @@
+model,CV macro F1,Test accuracy,Test macro F1 [95% CI],Test FTP recall,Training time (s),"Inference (ms / 1,000 flows)"
+Logistic Regression,0.9837 ± 0.0155,0.99987,"0.9824 [0.9520, 1.0000]",1.0,0.69,1.22
+Decision Tree,0.9953 ± 0.0089,0.99993,"0.9999 [0.9997, 1.0000]",1.0,0.45,0.58
+Random Forest,0.9955 ± 0.0089,0.99993,"0.9824 [0.9523, 1.0000]",1.0,3.8,3.12

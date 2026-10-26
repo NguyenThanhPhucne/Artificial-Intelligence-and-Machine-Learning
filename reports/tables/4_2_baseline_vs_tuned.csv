@@ -1,0 +1,19 @@
+model,stage,metric,mean,std
+Logistic Regression,Baseline,f1_weighted,0.99977,0.00016
+Logistic Regression,Tuned,f1_weighted,0.99985,0.00012
+Logistic Regression,Baseline,f1_macro,0.97183,0.01626
+Logistic Regression,Tuned,f1_macro,0.97928,0.01325
+Logistic Regression,Baseline,recall_ftp,1.0,0.0
+Logistic Regression,Tuned,recall_ftp,1.0,0.0
+Decision Tree,Baseline,f1_weighted,0.99988,0.00012
+Decision Tree,Tuned,f1_weighted,0.99985,0.00014
+Decision Tree,Baseline,f1_macro,0.99542,0.00899
+Decision Tree,Tuned,f1_macro,0.9903,0.01918
+Decision Tree,Baseline,recall_ftp,1.0,0.0
+Decision Tree,Tuned,recall_ftp,0.97143,0.05714
+Random Forest,Baseline,f1_weighted,0.99993,8e-05
+Random Forest,Tuned,f1_weighted,0.99993,8e-05
+Random Forest,Baseline,f1_macro,0.99549,0.00892
+Random Forest,Tuned,f1_macro,0.99549,0.00892
+Random Forest,Baseline,recall_ftp,1.0,0.0
+Random Forest,Tuned,recall_ftp,1.0,0.0

@@ -1,0 +1,16 @@
+model,parameter,selected value
+Logistic Regression,C,1.2229
+Logistic Regression,numeric transform,symlog
+Logistic Regression,SMOTE k_neighbors,5
+Logistic Regression,SMOTE sampling_strategy,500 FTP flows
+Decision Tree,criterion,entropy
+Decision Tree,max_depth,
+Decision Tree,min_samples_leaf,4
+Decision Tree,SMOTE k_neighbors,5
+Decision Tree,SMOTE sampling_strategy,"1,000 FTP flows"
+Random Forest,max_depth,20
+Random Forest,max_features,log2
+Random Forest,min_samples_leaf,1
+Random Forest,n_estimators,113
+Random Forest,SMOTE k_neighbors,5
+Random Forest,SMOTE sampling_strategy,"1,000 FTP flows"
