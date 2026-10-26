@@ -1,0 +1,17 @@
+# Raw CSE-CIC-IDS2018 CSVs (~6.9 GB): never committed; README links to the source.
+IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/
+*.csv
+!reports/tables/*.csv
+!data/reference/*.csv
+
+# Environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Fitted models are rebuilt by the notebooks
+models/
+
+.DS_Store

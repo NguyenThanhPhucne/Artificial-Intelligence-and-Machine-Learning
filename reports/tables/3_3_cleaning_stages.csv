@@ -1,0 +1,9 @@
+,Benign,FTP-BruteForce,SSH-Bruteforce,Total
+1. Raw file,667626,193360,187589,1048575
+2. Removed: non-finite values (Infinity/NaN),3818,6,0,3824
+3. Removed: impossible negative values,5,0,0,5
+4. After row-wise cleaning,663803,193354,187589,1044746
+5. Removed: duplicate flows (same features and label),138563,193301,93541,425405
+6. Removed: same features with different labels,0,7,7,14
+7. Unique flows (sampling frame),525240,46,94041,619327
+8. Stratified sample,63572,46,11382,75000

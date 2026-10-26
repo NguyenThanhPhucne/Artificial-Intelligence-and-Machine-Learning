@@ -1,0 +1,81 @@
+csv_column,cic_feature_name,cic_description,role,note
+Dst Port,,,categorical,"Not in CIC Table 3. Destination TCP/UDP port of the flow. Near-perfect proxy for the label on this day (FTP = 21, SSH = 22); excluded from the main model, used only in an ablation."
+Protocol,,,categorical,"Not in CIC Table 3. IP protocol number; values observed: 0, 6 (TCP), 17 (UDP)."
+Timestamp,,,identifier,"Not in CIC Table 3. Flow start time 'dd/mm/yyyy hh:mm:ss' on a 12-hour clock without AM/PM (SSH-Bruteforce ran 14:01-15:31 per CIC Table 2 but is stored as 02:01-03:32); 5 rows carry 1970 dates. Not a flow property: excluded."
+Flow Duration,fl_dur,Flow duration,numeric,
+Tot Fwd Pkts,tot_fw_pk,Total packets in the forward direction,numeric,
+Tot Bwd Pkts,tot_bw_pk,Total packets in the backward direction,numeric,
+TotLen Fwd Pkts,tot_l_fw_pkt,Total size of packet in forward direction,numeric,
+TotLen Bwd Pkts,,,numeric,"Not in CIC Table 3; by analogy with TotLen Fwd Pkts, total size of packets in the backward direction."
+Fwd Pkt Len Max,fw_pkt_l_max,Maximum size of packet in forward direction,numeric,
+Fwd Pkt Len Min,fw_pkt_l_min,Minimum size of packet in forward direction,numeric,
+Fwd Pkt Len Mean,fw_pkt_l_avg,Average size of packet in forward direction,numeric,
+Fwd Pkt Len Std,fw_pkt_l_std,Standard deviation size of packet in forward direction,numeric,
+Bwd Pkt Len Max,Bw_pkt_l_max,Maximum size of packet in backward direction,numeric,
+Bwd Pkt Len Min,Bw_pkt_l_min,Minimum size of packet in backward direction,numeric,
+Bwd Pkt Len Mean,Bw_pkt_l_avg,Mean size of packet in backward direction,numeric,
+Bwd Pkt Len Std,Bw_pkt_l_std,Standard deviation size of packet in backward direction,numeric,
+Flow Byts/s,fl_byt_s,flow byte rate that is number of packets transferred per second,numeric,"CIC text says 'packets'; the name and the separate Flow Pkts/s column indicate bytes per second. Contains Infinity/NaN when the flow duration is zero."
+Flow Pkts/s,fl_pkt_s,flow packets rate that is number of packets transferred per second,numeric,Contains Infinity when the flow duration is zero.
+Flow IAT Mean,fl_iat_avg,Average time between two flows,numeric,
+Flow IAT Std,fl_iat_std,Standard deviation time two flows,numeric,
+Flow IAT Max,fl_iat_max,Maximum time between two flows,numeric,
+Flow IAT Min,fl_iat_min,Minimum time between two flows,numeric,
+Fwd IAT Tot,fw_iat_tot,Total time between two packets sent in the forward direction,numeric,
+Fwd IAT Mean,fw_iat_avg,Mean time between two packets sent in the forward direction,numeric,
+Fwd IAT Std,fw_iat_std,Standard deviation time between two packets sent in the forward direction,numeric,
+Fwd IAT Max,fw_iat_max,Maximum time between two packets sent in the forward direction,numeric,
+Fwd IAT Min,fw_iat_min,Minimum time between two packets sent in the forward direction,numeric,
+Bwd IAT Tot,bw_iat_tot,Total time between two packets sent in the backward direction,numeric,
+Bwd IAT Mean,bw_iat_avg,Mean time between two packets sent in the backward direction,numeric,
+Bwd IAT Std,bw_iat_std,Standard deviation time between two packets sent in the backward direction,numeric,
+Bwd IAT Max,bw_iat_max,Maximum time between two packets sent in the backward direction,numeric,
+Bwd IAT Min,bw_iat_min,Minimum time between two packets sent in the backward direction,numeric,
+Fwd PSH Flags,fw_psh_flag,Number of times the PSH flag was set in packets travelling in the forward direction (0 for UDP),numeric,
+Bwd PSH Flags,bw_psh_flag,Number of times the PSH flag was set in packets travelling in the backward direction (0 for UDP),numeric,
+Fwd URG Flags,fw_urg_flag,Number of times the URG flag was set in packets travelling in the forward direction (0 for UDP),numeric,
+Bwd URG Flags,bw_urg_flag,Number of times the URG flag was set in packets travelling in the backward direction (0 for UDP),numeric,
+Fwd Header Len,fw_hdr_len,Total bytes used for headers in the forward direction,numeric,
+Bwd Header Len,bw_hdr_len,Total bytes used for headers in the forward direction,numeric,"CIC text repeats 'forward'; the name indicates the backward direction (copy error in the source table)."
+Fwd Pkts/s,fw_pkt_s,Number of forward packets per second,numeric,
+Bwd Pkts/s,bw_pkt_s,Number of backward packets per second,numeric,
+Pkt Len Min,pkt_len_min,Minimum length of a flow,numeric,Name indicates minimum packet length.
+Pkt Len Max,pkt_len_max,Maximum length of a flow,numeric,Name indicates maximum packet length.
+Pkt Len Mean,pkt_len_avg,Mean length of a flow,numeric,Name indicates mean packet length.
+Pkt Len Std,pkt_len_std,Standard deviation length of a flow,numeric,Name indicates standard deviation of packet length.
+Pkt Len Var,pkt_len_va,Minimum inter-arrival time of packet,numeric,"CIC text is a copy error: in this file the column equals Pkt Len Std squared (correlation 1.0 over all 1,048,575 rows), i.e. packet-length variance. Redundant with Pkt Len Std."
+FIN Flag Cnt,fin_cnt,Number of packets with FIN,numeric,
+SYN Flag Cnt,syn_cnt,Number of packets with SYN,numeric,
+RST Flag Cnt,rst_cnt,Number of packets with RST,numeric,
+PSH Flag Cnt,pst_cnt,Number of packets with PUSH,numeric,
+ACK Flag Cnt,ack_cnt,Number of packets with ACK,numeric,
+URG Flag Cnt,urg_cnt,Number of packets with URG,numeric,
+CWE Flag Count,cwe_cnt,Number of packets with CWE,numeric,
+ECE Flag Cnt,ece_cnt,Number of packets with ECE,numeric,
+Down/Up Ratio,down_up_ratio,Download and upload ratio,numeric,
+Pkt Size Avg,pkt_size_avg,Average size of packet,numeric,
+Fwd Seg Size Avg,fw_seg_avg,Average size observed in the forward direction,numeric,
+Bwd Seg Size Avg,bw_seg_avg,Average size observed in the backward direction,numeric,
+Fwd Byts/b Avg,fw_byt_blk_avg,Average number of bytes bulk rate in the forward direction,numeric,
+Fwd Pkts/b Avg,fw_pkt_blk_avg,Average number of packets bulk rate in the forward direction,numeric,
+Fwd Blk Rate Avg,fw_blk_rate_avg,Average number of bulk rate in the forward direction,numeric,
+Bwd Byts/b Avg,bw_byt_blk_avg,Average number of bytes bulk rate in the backward direction,numeric,
+Bwd Pkts/b Avg,bw_pkt_blk_avg,Average number of packets bulk rate in the backward direction,numeric,
+Bwd Blk Rate Avg,bw_blk_rate_avg,Average number of bulk rate in the backward direction,numeric,
+Subflow Fwd Pkts,subfl_fw_pk,The average number of packets in a sub flow in the forward direction,numeric,
+Subflow Fwd Byts,subfl_fw_byt,The average number of bytes in a sub flow in the forward direction,numeric,
+Subflow Bwd Pkts,subfl_bw_pkt,The average number of packets in a sub flow in the backward direction,numeric,
+Subflow Bwd Byts,subfl_bw_byt,The average number of bytes in a sub flow in the backward direction,numeric,
+Init Fwd Win Byts,fw_win_byt,Number of bytes sent in initial window in the forward direction,numeric,"-1 = no TCP window observed (inferred from the data: all non-TCP flows, and TCP flows without backward packets); kept."
+Init Bwd Win Byts,bw_win_byt,# of bytes sent in initial window in the backward direction,numeric,"-1 = no TCP window observed (inferred from the data: all non-TCP flows, and TCP flows without backward packets); kept."
+Fwd Act Data Pkts,Fw_act_pkt,# of packets with at least 1 byte of TCP data payload in the forward direction,numeric,
+Fwd Seg Size Min,fw_seg_min,Minimum segment size observed in the forward direction,numeric,
+Active Mean,atv_avg,Mean time a flow was active before becoming idle,numeric,
+Active Std,atv_std,Standard deviation time a flow was active before becoming idle,numeric,
+Active Max,atv_max,Maximum time a flow was active before becoming idle,numeric,
+Active Min,atv_min,Minimum time a flow was active before becoming idle,numeric,
+Idle Mean,idl_avg,Mean time a flow was idle before becoming active,numeric,
+Idle Std,idl_std,Standard deviation time a flow was idle before becoming active,numeric,
+Idle Max,idl_max,Maximum time a flow was idle before becoming active,numeric,
+Idle Min,idl_min,Minimum time a flow was idle before becoming active,numeric,
+Label,,,target,"Not in CIC Table 3. Ground-truth class: Benign, FTP-BruteForce or SSH-Bruteforce."

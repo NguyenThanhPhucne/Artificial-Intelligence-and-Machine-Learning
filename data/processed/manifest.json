@@ -1,0 +1,83 @@
+{
+  "created_utc": "2026-10-26T02:34:35+00:00",
+  "raw_file": "02-14-2018.csv",
+  "raw_original_aws_name": "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv",
+  "raw_sha256": "acff8bc61376ee031d80878ee6099e0b1a87a1bd711d8068298421418c9f8147",
+  "raw_size_bytes": 358223333,
+  "seed": 42,
+  "sample_size": 75000,
+  "rare_class_floor": 2000,
+  "dedup_ignore_columns": [
+    "Timestamp",
+    "Dst Port"
+  ],
+  "sentinel_negative_columns": [
+    "Init Fwd Win Byts",
+    "Init Bwd Win Byts"
+  ],
+  "n_conflicting_vectors_removed": 7,
+  "stage_counts": {
+    "1. Raw file": {
+      "Benign": 667626,
+      "FTP-BruteForce": 193360,
+      "SSH-Bruteforce": 187589,
+      "Total": 1048575
+    },
+    "2. Removed: non-finite values (Infinity/NaN)": {
+      "Benign": 3818,
+      "FTP-BruteForce": 6,
+      "SSH-Bruteforce": 0,
+      "Total": 3824
+    },
+    "3. Removed: impossible negative values": {
+      "Benign": 5,
+      "FTP-BruteForce": 0,
+      "SSH-Bruteforce": 0,
+      "Total": 5
+    },
+    "4. After row-wise cleaning": {
+      "Benign": 663803,
+      "FTP-BruteForce": 193354,
+      "SSH-Bruteforce": 187589,
+      "Total": 1044746
+    },
+    "5. Removed: duplicate flows (same features and label)": {
+      "Benign": 138563,
+      "FTP-BruteForce": 193301,
+      "SSH-Bruteforce": 93541,
+      "Total": 425405
+    },
+    "6. Removed: same features with different labels": {
+      "Benign": 0,
+      "FTP-BruteForce": 7,
+      "SSH-Bruteforce": 7,
+      "Total": 14
+    },
+    "7. Unique flows (sampling frame)": {
+      "Benign": 525240,
+      "FTP-BruteForce": 46,
+      "SSH-Bruteforce": 94041,
+      "Total": 619327
+    },
+    "8. Stratified sample": {
+      "Benign": 63572,
+      "FTP-BruteForce": 46,
+      "SSH-Bruteforce": 11382,
+      "Total": 75000
+    }
+  },
+  "sample_file": "sample_75k_dedup.parquet",
+  "sample_sha256": "34cc46c3488eab82e2b2cb6f624ffc5cff9d31701c3a10e05ad345482e0bbe91",
+  "sample_shape": [
+    75000,
+    80
+  ],
+  "versions": {
+    "python": "3.12.4",
+    "machine": "arm64",
+    "pandas": "3.1.0",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "imbalanced-learn": "0.14.2"
+  }
+}
