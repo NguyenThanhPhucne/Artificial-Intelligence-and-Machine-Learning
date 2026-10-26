@@ -13,9 +13,24 @@ from the CSE-CIC-IDS2018 bucket on the Registry of Open Data on AWS
 IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv
 ```
 
-Terms of use (Canadian Institute for Cybersecurity, <https://www.unb.ca/cic/datasets/ids-2018.html>, section 5 “License”):
-redistribution is permitted in any form provided that any use cites the CSE-CIC-IDS2018 dataset and links to the AWS
-registry page. Dataset paper: Sharafaldin, Lashkari and Ghorbani (2018), ICISSP.
+### Licence and citation
+
+- **Licence:** CC BY 4.0 (Attribution 4.0 International), <https://creativecommons.org/licenses/by/4.0/>, as listed
+  for the Kaggle mirror *IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)* used in this project.
+- **Citation required by the Canadian Institute for Cybersecurity (CIC):** “any use or redistribution of the data must
+  include a citation to the CSE-CIC-IDS2018 dataset and a link to this page in AWS”
+  (<https://www.unb.ca/cic/datasets/ids-2018.html>, section 5). In-text citation: (Sharafaldin, Lashkari and Ghorbani, 2018);
+  AWS page: <https://registry.opendata.aws/cse-cic-ids2018>.
+- **Changes made** (CC BY 4.0 requires indicating them): `data/processed/sample_75k_dedup.parquet` is derived from
+  `02-14-2018.csv`. I removed rows with Infinity/NaN or impossible negative values, removed duplicate and
+  contradictory flows, and drew a stratified sample of 75,000 rows (seed 42). The steps and counts are in
+  `notebooks/01_data_preparation.ipynb` and `data/processed/manifest.json`.
+
+Reference (BCU Harvard):
+
+> Sharafaldin, I., Lashkari, A.H. and Ghorbani, A.A. (2018) ‘Toward generating a new intrusion detection dataset and
+> intrusion traffic characterization’, *Proceedings of the 4th International Conference on Information Systems Security
+> and Privacy (ICISSP 2018)*. SciTePress, pp. 108–116. Available at: https://doi.org/10.5220/0006639801080116.
 
 ## Setup (Apple Silicon, Python 3.12 arm64)
 
