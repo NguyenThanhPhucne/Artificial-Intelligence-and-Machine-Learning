@@ -14,4 +14,10 @@ __pycache__/
 # Fitted models are rebuilt by the notebooks
 models/
 
+# Personal study notes in Vietnamese (not part of the submission)
+notes_vi/
+
+# Scaffolding scripts that generate the notebooks (the .ipynb files are the deliverable)
+dev/
+
 .DS_Store

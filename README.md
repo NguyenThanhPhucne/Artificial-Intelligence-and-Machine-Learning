@@ -36,15 +36,39 @@ Reference (BCU Harvard):
 
 ```bash
 uv sync                      # creates .venv from uv.lock
-uv run pytest                # data-integrity and leakage tests
-uv run jupyter notebook      # notebooks/01_… → 03_…, run in order
+uv run pytest                # data, leakage, model and notebook checks
+uv run jupyter notebook      # open the notebooks below and run them in order
 ```
 
-To re-execute a notebook end to end from a clean kernel:
+| Notebook | Report sections | Runtime (M1 Max) |
+|---|---|---|
+| `01_data_preparation.ipynb` | 1, 1.1, 1.2, 3.3 – cleaning, de-duplication, 75,000-flow sample | ~15 s |
+| `02_exploratory_analysis.ipynb` | 2.1–2.4 – stratified split, leakage check, EDA on the training set | ~20 s |
+| `03_modelling.ipynb` | 3.1, 3.2, 3.4, 4.1, 4.2 – baselines, randomised search, cross-validation | ~4 min first run, ~30 s cached |
+| `04_evaluation.ipynb` | 5, 6.1, 6.2 – test set, ablations, model choice, interpretation | ~1.5 min |
+
+To reproduce everything from a clean kernel, including refitting every model instead of loading the cached searches
+from `models/`:
 
 ```bash
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/01_data_preparation.ipynb
+for nb in 01_data_preparation 02_exploratory_analysis 03_modelling 04_evaluation; do
+  NIDS_FORCE_RETRAIN=1 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/$nb.ipynb
+done
 ```
+
+All randomness is seeded (seed 42); a full refit reproduces every reported table exactly (only timings vary).
+
+## Main results
+
+| Model (hyper-parameters selected by CV macro F1) | CV macro F1 | Test accuracy | Test FTP recall | Training (s) | Inference (ms / 1,000 flows) |
+|---|---|---|---|---|---|
+| Logistic Regression | 0.9837 ± 0.0155 | 0.99987 | 9 / 9 | 0.69 | 1.22 |
+| **Decision Tree (selected)** | 0.9953 ± 0.0089 | 0.99993 | 9 / 9 | 0.45 | 0.58 |
+| Random Forest | 0.9955 ± 0.0089 | 0.99993 | 9 / 9 | 3.80 | 3.12 |
+
+The exact figures, with confidence intervals, are in `reports/tables/5_5_final_comparison.csv`; timings vary slightly
+between runs. Ablations show that the destination port is a label shortcut, that SMOTE brings no benefit on this data,
+and that Logistic Regression and the Random Forest partly rely on TCP values fixed by the attacking machines.
 
 ## Layout
 
