@@ -7,6 +7,7 @@ decision without searching through the code.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -14,7 +15,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # --- Raw data ------------------------------------------------------------------------------------
 # I use the Kaggle mirror, which renames the original AWS file
 # "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv" to "02-14-2018.csv"; the content is the same day.
-RAW_DIR = PROJECT_ROOT / "IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)"
+# The NIDS_RAW_DIR environment variable can point elsewhere, e.g. to a Google Drive folder on Colab,
+# without editing the code; by default the CSVs sit next to the project.
+RAW_DIR = Path(os.environ.get("NIDS_RAW_DIR", PROJECT_ROOT / "IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)"))
 RAW_CSV = RAW_DIR / "02-14-2018.csv"
 ORIGINAL_AWS_FILENAME = "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv"
 # I copied the column descriptions verbatim from CIC Table 3 ("List of extracted traffic features

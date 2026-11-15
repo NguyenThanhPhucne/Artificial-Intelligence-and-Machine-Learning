@@ -30,6 +30,40 @@ def class_counts(y: pd.Series) -> pd.DataFrame:
     return pd.DataFrame({"flows": counts, "percent": counts / counts.sum() * 100})
 
 
+def missing_values(X: pd.DataFrame) -> pd.Series:
+    """Count missing values per column (`isnull().sum()`), keeping only columns that have any.
+
+    Missing and infinite values were removed during cleaning in notebook 01 (3,824 rows), so on the
+    sample this should be empty; I compute it anyway as a check that cleaning really happened.
+    """
+    counts = X.isnull().sum()
+    return counts[counts > 0]
+
+
+def descriptive_statistics(X_numeric: pd.DataFrame) -> pd.DataFrame:
+    """Summary statistics for every numeric feature on the raw scale, as taught in weeks 3 and 5.
+
+    Measures of location (mean, median, mode), of spread (standard deviation, variance, range,
+    inter-quartile range) and of shape (skewness, kurtosis). For these features the mean is far above
+    the median wherever a few very long or very large flows exist, which skewness quantifies; I
+    report kurtosis as excess kurtosis (0 for a normal distribution), pandas' convention.
+    """
+    q1, q3 = X_numeric.quantile(0.25), X_numeric.quantile(0.75)
+    return pd.DataFrame({
+        "mean": X_numeric.mean(),
+        "median": X_numeric.median(),
+        "mode": X_numeric.mode().iloc[0],
+        "std": X_numeric.std(),
+        "variance": X_numeric.var(),
+        "min": X_numeric.min(),
+        "max": X_numeric.max(),
+        "range": X_numeric.max() - X_numeric.min(),
+        "IQR": q3 - q1,
+        "skewness": X_numeric.skew(),
+        "kurtosis": X_numeric.kurt(),
+    })
+
+
 def variance_ranking(X_numeric: pd.DataFrame) -> pd.Series:
     """Rank features by variance after the symlog transform, highest first.
 

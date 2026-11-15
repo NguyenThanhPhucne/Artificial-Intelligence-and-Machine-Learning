@@ -1,0 +1,20 @@
+,Benign,FTP-BruteForce,SSH-Bruteforce
+Fwd Seg Size Min,-8.749642,0.0,1.329738
+Fwd Act Data Pkts,-0.247643,0.0,3.814726
+Fwd IAT Min,0.0,0.0,2.900167
+Bwd Pkt Len Max,0.0,0.0,1.701666
+Bwd IAT Min,0.938545,0.0,-1.182932
+URG Flag Cnt,0.0,-0.308431,0.837343
+Flow Duration,0.774891,0.0,0.0
+Active Mean,0.055919,0.0,-0.575549
+Flow IAT Mean,0.467036,0.0,-0.244992
+Bwd Pkts/s,-0.399154,0.0,0.0
+Active Max,6e-06,0.0,-0.39826
+Flow IAT Max,0.367829,0.0,0.0
+Fwd IAT Max,0.342655,0.0,0.0
+Fwd Pkts/s,-0.279324,0.0,0.027965
+ACK Flag Cnt,0.0,-0.127179,0.0
+Active Min,5e-06,0.0,-0.089593
+SYN Flag Cnt,0.038243,0.0,0.0
+Fwd PSH Flags,0.038243,0.0,0.0
+Down/Up Ratio,0.0,0.0,-0.011036

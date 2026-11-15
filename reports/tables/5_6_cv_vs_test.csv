@@ -1,0 +1,25 @@
+model,metric,cv_mean,cv_std,test,test_low,test_high
+Decision Tree,accuracy,0.99985,0.000143,0.999867,0.999667,1.0
+Decision Tree,f1_weighted,0.99985,0.000143,0.999867,0.999667,1.0
+Decision Tree,f1_macro,0.990304,0.019177,0.999827,0.999568,1.0
+Random Forest,accuracy,0.999933,8.2e-05,0.999933,0.9998,1.0
+Random Forest,f1_weighted,0.999934,8.1e-05,0.999935,0.999814,1.0
+Random Forest,f1_macro,0.995488,0.008917,0.982443,0.952342,1.0
+Gaussian Naive Bayes,accuracy,0.999633,0.000227,0.9998,0.999533,1.0
+Gaussian Naive Bayes,f1_weighted,0.999633,0.000228,0.9998,0.999533,1.0
+Gaussian Naive Bayes,f1_macro,0.999525,0.000295,0.999741,0.999395,1.0
+k-Nearest Neighbours,accuracy,0.999983,3.3e-05,0.999933,0.9998,1.0
+k-Nearest Neighbours,f1_weighted,0.999983,3.3e-05,0.999933,0.9998,1.0
+k-Nearest Neighbours,f1_macro,0.999978,4.3e-05,0.999914,0.999741,1.0
+Logistic Regression,accuracy,0.99985,0.000122,0.9998,0.999533,1.0
+Logistic Regression,f1_weighted,0.999854,0.000121,0.999807,0.999558,1.0
+Logistic Regression,f1_macro,0.979276,0.013252,0.966554,0.916588,1.0
+Support Vector Machine,accuracy,0.999917,7.5e-05,0.999867,0.999667,1.0
+Support Vector Machine,f1_weighted,0.999917,7.4e-05,0.999868,0.999669,1.0
+Support Vector Machine,f1_macro,0.995466,0.008907,0.982357,0.95191,1.0
+Gradient Boosting,accuracy,0.99995,6.7e-05,1.0,1.0,1.0
+Gradient Boosting,f1_weighted,0.999951,6.6e-05,1.0,1.0,1.0
+Gradient Boosting,f1_macro,0.995509,0.008928,1.0,1.0,1.0
+Multi-layer Perceptron,accuracy,0.999883,8.5e-05,0.999933,0.9998,1.0
+Multi-layer Perceptron,f1_weighted,0.999886,8.2e-05,0.999935,0.999814,1.0
+Multi-layer Perceptron,f1_macro,0.987649,0.016555,0.982443,0.952342,1.0

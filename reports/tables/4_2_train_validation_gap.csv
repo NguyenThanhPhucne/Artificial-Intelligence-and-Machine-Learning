@@ -1,0 +1,9 @@
+,train macro F1,validation macro F1,gap
+Decision Tree,0.999924,0.990304,0.009621
+Random Forest,1.0,0.995488,0.004512
+Gaussian Naive Bayes,0.999525,0.999525,0.0
+k-Nearest Neighbours,1.0,0.999978,2.2e-05
+Logistic Regression,0.977849,0.979276,-0.001427
+Support Vector Machine,1.0,0.995466,0.004534
+Gradient Boosting,0.998864,0.995509,0.003355
+Multi-layer Perceptron,0.989205,0.987649,0.001556

@@ -17,11 +17,13 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
 
 from . import config
+from .models import MODEL_NAMES
 
 CLASS_ORDER = ["Benign", "FTP-BruteForce", "SSH-Bruteforce"]
-MODEL_ORDER = ["Logistic Regression", "Decision Tree", "Random Forest"]
+MODEL_ORDER = list(MODEL_NAMES)
 # Models are a second categorical dimension; I give them neutral inks so they never borrow a class colour.
 BASELINE_INK = "#898781"
 TUNED_INK = "#0b0b0b"
@@ -191,7 +193,8 @@ def plot_cv_comparison(scores: pd.DataFrame, metrics: dict[str, str]) -> Figure:
     +/- 1 standard-deviation bars on a zoomed axis. Exact values are in the accompanying table, so I
     do not print them on the chart, where they would collide.
     """
-    fig, axes = plt.subplots(1, len(metrics), figsize=(4.2 * len(metrics), 2.9), sharey=True)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(4.2 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3),
+                             sharey=True)
     axes = np.atleast_1d(axes)
     positions = {model: i for i, model in enumerate(MODEL_ORDER)}
     for ax, (metric, label) in zip(axes, metrics.items()):
@@ -209,6 +212,8 @@ def plot_cv_comparison(scores: pd.DataFrame, metrics: dict[str, str]) -> Figure:
         ax.set_xlim(lows - span * 0.1, highs + span * 0.1)
         # Without this, matplotlib writes ticks as offsets from 1 ("-0.0002 +1"), which is unreadable.
         ax.ticklabel_format(axis="x", useOffset=False)
+        # Scores differ only in the fourth decimal, so long tick labels would overlap; four ticks suffice.
+        ax.xaxis.set_major_locator(MaxNLocator(4))
         ax.set_title(label)
         ax.set_xlabel("Cross-validation score (mean ± 1 SD)")
         ax.grid(axis="y", visible=False)
@@ -225,7 +230,7 @@ def plot_timing(timing: pd.DataFrame) -> Figure:
     They are different quantities with different units, so I give each its own axis rather than a
     dual-axis chart.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(10, 2.6), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 0.36 * len(MODEL_ORDER) + 1.2), sharey=True)
     panels = [
         ("fit_seconds", "Training time on 60,000 flows (s)", "{:.2f} s"),
         ("predict_ms_per_1000", "Inference time per 1,000 flows (ms)", "{:.2f} ms"),
@@ -263,8 +268,12 @@ def plot_confusion_matrices(results: dict[str, tuple[np.ndarray, np.ndarray]], t
     """
     from sklearn.metrics import confusion_matrix
 
-    fig, axes = plt.subplots(1, len(results), figsize=(4.3 * len(results), 4.1))
-    axes = np.atleast_1d(axes)
+    ncols = min(4, len(results))
+    nrows = int(np.ceil(len(results) / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.3 * ncols, 4.0 * nrows), squeeze=False)
+    for ax in axes.flat[len(results):]:
+        ax.set_visible(False)
+    axes = axes.flat
     short = [c.split("-")[0] for c in CLASS_ORDER]
     cmap = LinearSegmentedColormap.from_list("recall", ["#ffffff", "#cde2fb", "#2a78d6", "#104281"])
     for ax, (name, (y_true, y_pred)) in zip(axes, results.items()):
@@ -284,7 +293,8 @@ def plot_confusion_matrices(results: dict[str, tuple[np.ndarray, np.ndarray]], t
         ax.grid(False)
         for spine in ax.spines.values():
             spine.set_visible(False)
-    axes[0].set_ylabel("True class")
+    for ax in list(axes)[::ncols]:
+        ax.set_ylabel("True class")
     fig.suptitle(title_suffix, x=0.01, ha="left", fontsize=11, fontweight="bold")
     fig.tight_layout()
     return fig
@@ -297,7 +307,8 @@ def plot_cv_vs_test(table: pd.DataFrame, metrics: dict[str, str]) -> Figure:
     one axis lets the reader see whether the test score falls inside the range the cross-validation
     predicted, which is the evidence that the model generalises rather than memorises.
     """
-    fig, axes = plt.subplots(1, len(metrics), figsize=(5 * len(metrics), 2.9), sharey=True)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(5 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3),
+                             sharey=True)
     axes = np.atleast_1d(axes)
     positions = {model: i for i, model in enumerate(MODEL_ORDER)}
     for ax, (metric, label) in zip(axes, metrics.items()):
@@ -315,6 +326,7 @@ def plot_cv_vs_test(table: pd.DataFrame, metrics: dict[str, str]) -> Figure:
         span = max(1.0 - low, 1e-4)
         ax.set_xlim(low - span * 0.1, 1.0 + span * 0.05)
         ax.ticklabel_format(axis="x", useOffset=False)
+        ax.xaxis.set_major_locator(MaxNLocator(4))
         ax.set_title(label)
         ax.set_xlabel("Score")
         ax.grid(axis="y", visible=False)
@@ -333,24 +345,31 @@ def plot_ablation(table: pd.DataFrame, variant_labels: dict[str, str]) -> Figure
     The main pipeline is drawn in black and every variant in grey, with a vertical reference line at
     the main pipeline's score, so each change reads as a shift left or right of that line.
     """
-    fig, axes = plt.subplots(1, len(MODEL_ORDER), figsize=(4.2 * len(MODEL_ORDER), 2.9), sharey=True)
+    ncols = 4
+    nrows = int(np.ceil(len(MODEL_ORDER) / ncols))
     variants = list(variant_labels)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(3.6 * ncols, (0.3 * len(variants) + 1.0) * nrows),
+                             sharey=True, squeeze=False)
     low = (table["f1_macro_mean"] - table["f1_macro_std"]).min()
-    for ax, model in zip(axes, MODEL_ORDER):
+    for ax, model in zip(axes.flat, MODEL_ORDER):
         rows = table[table["model"] == model].set_index("variant").reindex(variants)
         main = rows.loc["main", "f1_macro_mean"]
         ax.axvline(main, color=GRID, linewidth=1.5, zorder=0)
         for i, variant in enumerate(variants):
             mean, std = rows.loc[variant, "f1_macro_mean"], rows.loc[variant, "f1_macro_std"]
+            if np.isnan(mean):  # variant not applicable to this model (no class_weight parameter)
+                ax.text(low, i, "  n/a", va="center", fontsize=8, color=INK_MUTED)
+                continue
             ink = TUNED_INK if variant == "main" else BASELINE_INK
             ax.errorbar(mean, i, xerr=[[std], [min(std, 1.0 - mean)]], fmt="D" if variant == "main" else "o",
                         color=ink, markersize=6, capsize=3, linewidth=1.2)
         ax.set_xlim(low - (1 - low) * 0.1, 1.0 + (1 - low) * 0.05)
-        ax.set_title(model)
-        ax.set_xlabel("CV macro F1 (mean ± 1 SD)")
+        ax.set_title(model, fontsize=10)
+        ax.set_xlabel("CV macro F1 (mean ± 1 SD)", fontsize=8)
         ax.grid(axis="y", visible=False)
-    axes[0].set_yticks(range(len(variants)), [variant_labels[v] for v in variants])
-    axes[0].set_ylim(len(variants) - 0.5, -0.5)
+    for ax in axes[:, 0]:
+        ax.set_yticks(range(len(variants)), [variant_labels[v] for v in variants], fontsize=8)
+        ax.set_ylim(len(variants) - 0.5, -0.5)
     fig.tight_layout()
     return fig
 
@@ -368,5 +387,182 @@ def plot_importance(importance: pd.Series, title: str, xlabel: str) -> Figure:
     ax.set_xlabel(xlabel)
     ax.set_title(title)
     ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    return fig
+
+
+# --- Figures for techniques taught in the module (EDA, scaling, comparison, learning curves) -------
+
+def plot_histograms(X: pd.DataFrame, columns: list[str], stats: pd.DataFrame, ncols: int = 3) -> Figure:
+    """Univariate histograms of the training set, one panel per feature, skewness in the title.
+
+    On a linear axis these heavy-tailed features put almost every flow in the first bin, so the
+    x-axis uses symlog (linear near zero, logarithmic beyond) with bins spaced on the same scale; the
+    title keeps the skewness and kurtosis computed on the raw values, which is what the shape means.
+    """
+    nrows = int(np.ceil(len(columns) / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 2.9 * nrows), squeeze=False)
+    for ax, column in zip(axes.flat, columns):
+        values = X[column].to_numpy(dtype=float)
+        transformed = np.sign(values) * np.log1p(np.abs(values))
+        edges = np.linspace(transformed.min(), transformed.max(), 41)
+        bins = np.sign(edges) * np.expm1(np.abs(edges))
+        ax.hist(values, bins=np.unique(bins), color=INK_SECONDARY, alpha=0.85)
+        ax.set_xscale("symlog", linthresh=1)
+        ax.set_yscale("log")
+        ax.set_title(f"{column}\nskew {stats.loc[column, 'skewness']:.1f}, kurtosis {stats.loc[column, 'kurtosis']:.0f}",
+                     fontsize=9.5)
+        ax.set_xlabel("Value (symlog scale)", fontsize=8)
+        ax.grid(axis="x", visible=False)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Flows (log scale)")
+    for ax in list(axes.flat)[len(columns):]:
+        ax.set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
+def plot_scatter(X: pd.DataFrame, y: pd.Series, x_col: str, y_col: str, max_per_class: int = 3_000,
+                 seed: int = config.SEED) -> Figure:
+    """Bivariate scatter plot of two features coloured by class, on symlog axes.
+
+    Benign has ~51,000 flows, so I draw at most `max_per_class` random flows per class (all 37 FTP
+    flows are kept) and draw the rare classes last so they are not hidden under benign points.
+    """
+    fig, ax = plt.subplots(figsize=(6.2, 4.4))
+    rng = np.random.default_rng(seed)
+    # Attack flows are so uniform that thousands of them share one (x, y) pair and are drawn as a
+    # single dot; the legend states how many distinct points each class really has.
+    distinct = X[[x_col, y_col]].groupby(y, observed=True).apply(lambda g: len(g.drop_duplicates())).to_dict()
+    for cls in CLASS_ORDER:
+        rows = np.flatnonzero(y.to_numpy() == cls)
+        if len(rows) > max_per_class:
+            rows = rng.choice(rows, max_per_class, replace=False)
+        ax.scatter(X[x_col].iloc[rows], X[y_col].iloc[rows], s=10 if cls == "Benign" else 22,
+                   alpha=0.35 if cls == "Benign" else 0.8, color=CLASS_COLORS[cls], edgecolors="none",
+                   label=f"{cls} (n={(y == cls).sum():,}; {distinct[cls]:,} distinct points)")
+    ax.set_xscale("symlog", linthresh=1)
+    ax.set_yscale("symlog", linthresh=1)
+    ax.set_xlabel(f"{x_col} (symlog scale)")
+    ax.set_ylabel(f"{y_col} (symlog scale)")
+    ax.set_title(f"{y_col} against {x_col}, training set")
+    ax.legend(loc="best", fontsize=8, markerscale=1.5)
+    fig.tight_layout()
+    return fig
+
+
+def plot_scaling_comparison(raw: pd.Series, standard: np.ndarray, minmax: np.ndarray) -> Figure:
+    """One feature before scaling, after StandardScaler and after MinMaxScaler (fitted on train).
+
+    Both scalers are linear, so the shape of the distribution never changes; only the axis does.
+    I print the resulting range under each panel because that is the difference the lecture stresses:
+    standardisation keeps outliers far from the centre, min-max squeezes the bulk of the data into a
+    tiny part of [0, 1] when one extreme value exists.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(11, 2.8))
+    panels = [(raw.to_numpy(), "Raw values"), (standard, "StandardScaler (mean 0, SD 1)"),
+              (minmax, "MinMaxScaler (range 0 to 1)")]
+    for ax, (values, title) in zip(axes, panels):
+        ax.hist(values, bins=60, color=INK_SECONDARY)
+        ax.set_yscale("log")
+        ax.set_title(title, fontsize=10)
+        ax.set_xlabel(f"min {values.min():,.3g}, median {np.median(values):,.3g}, max {values.max():,.3g}",
+                      fontsize=8)
+        ax.grid(axis="x", visible=False)
+    axes[0].set_ylabel("Flows (log scale)")
+    fig.suptitle(raw.name, x=0.01, ha="left", fontsize=11, fontweight="bold")
+    fig.tight_layout()
+    return fig
+
+
+def plot_metric_bars(table: pd.DataFrame, metrics: dict[str, str]) -> Figure:
+    """Bar chart per metric comparing every model on the same test-set scores (template step 7).
+
+    All scores are above 0.98, so bars drawn from zero would look identical; each panel's axis
+    starts just below the lowest score, which I state in the axis label, and every bar carries its
+    exact value so the chart cannot exaggerate a difference.
+    """
+    fig, axes = plt.subplots(1, len(metrics), figsize=(4.0 * len(metrics), 0.36 * len(MODEL_ORDER) + 1.4),
+                             sharey=True)
+    axes = np.atleast_1d(axes)
+    positions = np.arange(len(MODEL_ORDER))
+    for ax, (metric, label) in zip(axes, metrics.items()):
+        values = table.reindex(MODEL_ORDER)[metric]
+        start = np.floor((values.min() - (1 - values.min()) * 0.3) * 1000) / 1000
+        ax.barh(positions, values - start, left=start, height=0.6, color=INK_SECONDARY)
+        for pos, value in zip(positions, values):
+            ax.text(value, pos, f" {value:.4f}", va="center", fontsize=8)
+        ax.set_xlim(start, 1 + (1 - start) * 0.35)
+        # Three ticks from the axis start to 1.0: a score cannot exceed 1, so no tick is drawn beyond it.
+        ax.set_xticks(np.linspace(start, 1.0, 3))
+        ax.ticklabel_format(axis="x", useOffset=False)
+        ax.set_title(label)
+        ax.set_xlabel(f"Test score (axis starts at {start:.3f})", fontsize=8)
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(positions, MODEL_ORDER)
+    axes[0].invert_yaxis()
+    fig.tight_layout()
+    return fig
+
+
+def plot_learning_curves(curves: dict[str, pd.DataFrame], ncols: int = 4) -> Figure:
+    """Learning curves: training- and validation-fold macro F1 against training-set size.
+
+    A large, persistent gap means over-fitting; two low curves mean under-fitting; two curves that
+    meet near 1.0 mean more data would not help. All panels share the y-axis so models compare
+    directly.
+    """
+    nrows = int(np.ceil(len(curves) / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(3.4 * ncols, 2.7 * nrows), sharey=True, squeeze=False)
+    low = min(min((c["valid_mean"] - c["valid_std"]).min(), c["train_mean"].min()) for c in curves.values())
+    for ax, (name, curve) in zip(axes.flat, curves.items()):
+        for column, ink, marker, label in (("train", BASELINE_INK, "o", "Training folds"),
+                                           ("valid", TUNED_INK, "D", "Validation folds")):
+            ax.plot(curve["train_flows"], curve[f"{column}_mean"], marker=marker, color=ink,
+                    markersize=4, linewidth=1.2, label=label)
+            ax.fill_between(curve["train_flows"], curve[f"{column}_mean"] - curve[f"{column}_std"],
+                            np.minimum(curve[f"{column}_mean"] + curve[f"{column}_std"], 1.0),
+                            color=ink, alpha=0.12, linewidth=0)
+        ax.set_title(name, fontsize=10)
+        ax.set_ylim(max(low - (1 - low) * 0.1, 0), 1.0 + (1 - low) * 0.05)
+        ax.set_xlabel("Training flows", fontsize=8)
+        ax.tick_params(labelsize=8)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Macro F1")
+    for ax in list(axes.flat)[len(curves):]:
+        ax.set_visible(False)
+    axes[0, 0].legend(loc="lower right", fontsize=7)
+    fig.tight_layout()
+    return fig
+
+
+def plot_decision_tree(pipeline, max_depth: int = 3) -> Figure:
+    """Draw the fitted Decision Tree with scikit-learn's plot_tree (as in the Week 4 lab).
+
+    The tree splits standardised inputs, so thresholds on the drawing are z-scores; the raw-unit
+    rules are printed separately by `evaluation.tree_rules_in_original_units`.
+    """
+    from sklearn.tree import plot_tree
+
+    model = pipeline.named_steps["model"]
+    names = list(pipeline.named_steps["preprocess"].get_feature_names_out())
+    fig, ax = plt.subplots(figsize=(13, 5.5))
+    boxes = plot_tree(model, max_depth=max_depth, feature_names=names, class_names=list(model.classes_),
+                      filled=False, impurity=False, proportion=False, rounded=True, fontsize=7, ax=ax)
+    # plot_tree's own palette would give Benign, FTP and SSH different colours from every other figure,
+    # so I recolour each node with its majority class colour, paler when the node is less pure.
+    for box in boxes:
+        text = box.get_text()
+        if "class = " not in text:
+            continue
+        cls = text.rsplit("class = ", 1)[1].strip()
+        counts = [float(v) for v in text.split("value = [", 1)[1].split("]", 1)[0].split(",")]
+        purity = max(counts) / sum(counts)
+        # Blend with white instead of using transparency, so the arrows behind a node stay hidden.
+        weight = 0.25 + 0.5 * purity
+        rgb = np.array(mpl.colors.to_rgb(CLASS_COLORS.get(cls, SURFACE)))
+        box.get_bbox_patch().set_facecolor(tuple(1 - weight * (1 - rgb)))
+    ax.set_title(f"Decision Tree (depth {model.get_depth()}, {model.get_n_leaves()} leaves): first {max_depth} levels; "
+                 f"thresholds in standardised units; samples include the synthetic SMOTE flows")
     fig.tight_layout()
     return fig

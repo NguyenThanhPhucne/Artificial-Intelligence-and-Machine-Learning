@@ -1,10 +1,20 @@
 model,true,predicted,flows
-Logistic Regression,Benign,FTP-BruteForce,5
-Logistic Regression,Benign,SSH-Bruteforce,1
-Logistic Regression,SSH-Bruteforce,Benign,3
 Decision Tree,Benign,FTP-BruteForce,1
 Decision Tree,Benign,SSH-Bruteforce,4
 Decision Tree,FTP-BruteForce,SSH-Bruteforce,1
 Decision Tree,SSH-Bruteforce,Benign,3
 Random Forest,Benign,FTP-BruteForce,1
 Random Forest,SSH-Bruteforce,Benign,3
+Gaussian Naive Bayes,SSH-Bruteforce,Benign,22
+k-Nearest Neighbours,SSH-Bruteforce,Benign,1
+Logistic Regression,Benign,FTP-BruteForce,5
+Logistic Regression,Benign,SSH-Bruteforce,1
+Logistic Regression,SSH-Bruteforce,Benign,3
+Support Vector Machine,Benign,FTP-BruteForce,1
+Support Vector Machine,Benign,SSH-Bruteforce,1
+Support Vector Machine,SSH-Bruteforce,Benign,3
+Gradient Boosting,Benign,FTP-BruteForce,1
+Gradient Boosting,SSH-Bruteforce,Benign,2
+Multi-layer Perceptron,Benign,FTP-BruteForce,3
+Multi-layer Perceptron,Benign,SSH-Bruteforce,1
+Multi-layer Perceptron,SSH-Bruteforce,Benign,3

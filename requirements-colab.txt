@@ -1,0 +1,11 @@
+# Libraries for running the notebooks on Google Colab. The versions are the ones that produced the
+# results in reports/ (see data/processed/manifest.json); other versions can change scores slightly.
+numpy==2.5.4
+pandas==3.1.0
+scipy==1.18.1
+scikit-learn==1.9.1
+imbalanced-learn==0.14.2
+matplotlib==3.11.2
+seaborn==0.13.2
+pyarrow==26.0.0
+joblib==1.6.0

@@ -1,4 +1,0 @@
-model,same setting as weighted F1,cv_f1_macro (weighted-selected),cv_f1_macro (macro-selected),cv_f1_macro_std,test_f1_macro,test_ci_low,test_ci_high,test_accuracy,test_recall_ftp,fit_seconds,inference_ms_per_1000
-Logistic Regression,False,0.979276,0.983681,0.015515,0.982357,0.951997,1.0,0.999867,1.0,0.687442,1.222703
-Decision Tree,False,0.990304,0.995336,0.008896,0.999914,0.999741,1.0,0.999933,1.0,0.451944,0.584581
-Random Forest,True,0.995488,0.995488,0.008917,0.982443,0.952342,1.0,0.999933,1.0,3.796698,3.121558

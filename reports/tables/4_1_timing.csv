@@ -1,4 +1,9 @@
 model,search_seconds,fit_seconds,predict_ms_per_1000
-Logistic Regression,30.2093,0.7783,1.2344
 Decision Tree,20.354,0.4716,0.3693
 Random Forest,176.2684,3.7636,2.7072
+Gaussian Naive Bayes,17.6176,0.3252,1.0037
+k-Nearest Neighbours,569.8218,0.266,32.7278
+Logistic Regression,30.2093,0.7783,1.2344
+Support Vector Machine,152.7497,0.6734,2.0981
+Gradient Boosting,109.8307,4.0957,9.4612
+Multi-layer Perceptron,71.2977,7.0263,1.6568

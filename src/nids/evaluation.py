@@ -13,6 +13,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from imblearn.under_sampling import TomekLinks
 from sklearn.base import BaseEstimator, clone
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.inspection import permutation_importance
@@ -23,7 +24,14 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import cross_validate
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import (
+    KFold,
+    StratifiedKFold,
+    cross_val_score,
+    cross_validate,
+    learning_curve,
+)
 
 from . import config, models
 from .features import build_pipeline
@@ -101,6 +109,11 @@ def variant_pipeline(
       * "no_host_fingerprint" – the window sizes and Fwd Seg Size Min removed together.
       * "class_weight"    – no SMOTE; the classifier weights classes inversely to their frequency.
       * "no_resampling"   – no SMOTE and no class weights.
+      * "tomek_links"     – SMOTE replaced by Tomek-link under-sampling.
+
+    Tomek links are pairs of nearest neighbours with different labels. Removing the majority-class
+    member of each pair cleans the class boundary instead of inventing minority flows, the opposite
+    strategy to SMOTE. Like SMOTE it runs after scaling (it is distance-based) and only during fit.
     """
     params = run.search.best_params_
     model_params = {k.removeprefix("model__"): v for k, v in params.items() if k.startswith("model__")}
@@ -116,15 +129,20 @@ def variant_pipeline(
     elif variant == "no_host_fingerprint":
         X_variant = X.drop(columns=HOST_FINGERPRINT_COLS)
     elif variant == "class_weight":
+        if not models.supports_class_weight(run.name):
+            raise ValueError(f"{run.name} has no class_weight parameter")
         estimator.set_params(class_weight="balanced")
         sampler = None
     elif variant == "no_resampling":
         sampler = None
+    elif variant == "tomek_links":
+        sampler = TomekLinks(sampling_strategy="auto", n_jobs=1)
     elif variant not in ("main", "with_dst_port"):
         raise ValueError(f"Unknown variant {variant!r}")
 
     pipeline = build_pipeline(X_variant, estimator, sampler=sampler, include_dst_port=include_port)
-    pipeline.set_params(**other_params, **(resample_params if sampler is not None else {}))
+    keep_smote_params = variant in ("main", "with_dst_port", "no_window_sizes", "no_host_fingerprint")
+    pipeline.set_params(**other_params, **(resample_params if keep_smote_params else {}))
     return pipeline, X_variant
 
 
@@ -258,3 +276,118 @@ def tree_rules_in_original_units(pipeline: BaseEstimator, max_depth: int = 3) ->
 
     walk(0, 0)
     return "\n".join(lines)
+
+
+# --- Techniques from the module's lectures, applied to this data -----------------------------------
+
+def fold_composition(y: pd.Series, minority: str = models.MINORITY_CLASS) -> pd.DataFrame:
+    """Count the minority-class flows in each validation fold under three 5-fold splitters.
+
+    The Week 7 lecture introduces KFold and StratifiedKFold. With only 37 FTP-BruteForce flows in the
+    training set, the difference is not academic: plain KFold can leave a fold with far fewer FTP
+    flows than another, so per-fold FTP scores would vary for reasons that have nothing to do with
+    the model. Stratification gives every fold the same share of each class.
+    """
+    splitters = {
+        "KFold (no shuffle)": KFold(n_splits=config.CV_FOLDS),
+        "KFold (shuffled)": KFold(n_splits=config.CV_FOLDS, shuffle=True, random_state=config.SEED),
+        "StratifiedKFold (shuffled)": models.cv_splitter(),
+    }
+    dummy = np.zeros(len(y))
+    rows = {}
+    for name, splitter in splitters.items():
+        rows[name] = [int((y.iloc[val] == minority).sum()) for _, val in splitter.split(dummy, y)]
+    table = pd.DataFrame(rows, index=[f"fold {k + 1}" for k in range(config.CV_FOLDS)]).T
+    table["min"], table["max"] = table.min(axis=1), table.max(axis=1)
+    return table
+
+
+def splitter_scores(pipeline: BaseEstimator, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+    """Score one pipeline with `cross_val_score` under KFold and StratifiedKFold (Week 7 style).
+
+    `cross_val_score` returns one score per fold; I report the mean and standard deviation of
+    accuracy and macro F1 so the effect of the splitter on the spread of the scores is visible.
+    """
+    splitters = {
+        "KFold (shuffled)": KFold(n_splits=config.CV_FOLDS, shuffle=True, random_state=config.SEED),
+        "StratifiedKFold (shuffled)": models.cv_splitter(),
+    }
+    rows = []
+    for name, splitter in splitters.items():
+        for metric in ("accuracy", "f1_macro"):
+            scores = cross_val_score(clone(pipeline), X, y, cv=splitter, scoring=metric, n_jobs=-1)
+            rows.append({"splitter": name, "metric": metric, "mean": scores.mean(), "std": scores.std(),
+                         "per_fold": ", ".join(f"{v:.4f}" for v in scores)})
+    return pd.DataFrame(rows)
+
+
+def regularisation_comparison(
+    run: models.SearchRun, X: pd.DataFrame, y: pd.Series, params: dict,
+    extra_c: tuple[float, ...] = (1.0, 0.1, 0.01),
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compare L2 (ridge) and L1 (lasso) penalties for the selected Logistic Regression (Week 9).
+
+    I keep every selected setting (transform, SMOTE) and change only the penalty and its strength,
+    using the saga solver because it supports both. scikit-learn 1.8 replaced the `penalty` argument
+    by `l1_ratio`: 0 gives the L2 penalty and 1 the L1 penalty. C is the inverse of the lecture's
+    alpha (lambda), so a smaller C means stronger shrinkage; besides the selected C I try stronger
+    penalties to show how L1 removes features while L2 only shrinks them. With saga's default
+    tolerance (1e-4) one fit took over ten minutes; at 1e-3 it converges in a few hundred passes.
+
+    For each setting I count the features whose coefficient is exactly zero for every class (L1's
+    embedded feature selection) and report training- and validation-fold macro F1, so a change in
+    over-fitting is visible. Returns (scores per setting, coefficients at the selected C).
+    """
+    rows, coefficients = [], {}
+    c_values = (float(params["model__C"]), *extra_c)
+    for c in c_values:
+        for label, ratio in (("L2 (ridge)", 0.0), ("L1 (lasso)", 1.0)):
+            pipeline = clone(run.search.estimator).set_params(**params)
+            pipeline.set_params(model=LogisticRegression(
+                C=c, l1_ratio=ratio, solver="saga", tol=1e-3, max_iter=5_000,
+                random_state=config.SEED,
+            ))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", ConvergenceWarning)
+                cv = cross_validate(pipeline, X, y, cv=models.cv_splitter(), scoring="f1_macro",
+                                    return_train_score=True, n_jobs=-1)
+                fitted = clone(pipeline).fit(X, y)
+            coef = pd.DataFrame(fitted.named_steps["model"].coef_.T,
+                                index=fitted.named_steps["preprocess"].get_feature_names_out(),
+                                columns=fitted.named_steps["model"].classes_)
+            if c == c_values[0]:
+                coefficients[label] = coef
+            zero = (coef.abs() < 1e-10).all(axis=1)
+            rows.append({
+                "C": c, "penalty": label,
+                "train_f1_macro": cv["train_score"].mean(),
+                "cv_f1_macro_mean": cv["test_score"].mean(),
+                "cv_f1_macro_std": cv["test_score"].std(),
+                "features_removed": int(zero.sum()),
+                "features_used": int((~zero).sum()),
+            })
+    return pd.DataFrame(rows), pd.concat(coefficients, axis=1)
+
+
+def learning_curve_table(
+    pipeline: BaseEstimator, X: pd.DataFrame, y: pd.Series,
+    sizes: tuple[float, ...] = (0.3, 0.45, 0.6, 0.8, 1.0),
+) -> pd.DataFrame:
+    """Training- and validation-fold macro F1 as the training set grows (Week 2: under/over-fitting).
+
+    I use the same 5 stratified folds and shuffle each training fold before taking the first n flows,
+    so small subsets still contain FTP-BruteForce. I start at 30% because below that a fold would hold
+    fewer FTP flows than SMOTE's neighbour count, and the pipeline could not be fitted.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ConvergenceWarning)
+        n, train, valid = learning_curve(
+            clone(pipeline), X, y, train_sizes=list(sizes), cv=models.cv_splitter(),
+            scoring="f1_macro", shuffle=True, random_state=config.SEED, n_jobs=-1,
+            error_score=np.nan,
+        )
+    return pd.DataFrame({
+        "train_flows": n,
+        "train_mean": np.nanmean(train, axis=1), "train_std": np.nanstd(train, axis=1),
+        "valid_mean": np.nanmean(valid, axis=1), "valid_std": np.nanstd(valid, axis=1),
+    })

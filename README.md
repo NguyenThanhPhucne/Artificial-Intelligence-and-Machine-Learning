@@ -43,9 +43,9 @@ uv run jupyter notebook      # open the notebooks below and run them in order
 | Notebook | Report sections | Runtime (M1 Max) |
 |---|---|---|
 | `01_data_preparation.ipynb` | 1, 1.1, 1.2, 3.3 – cleaning, de-duplication, 75,000-flow sample | ~15 s |
-| `02_exploratory_analysis.ipynb` | 2.1–2.4 – stratified split, leakage check, EDA on the training set | ~20 s |
-| `03_modelling.ipynb` | 3.1, 3.2, 3.4, 4.1, 4.2 – baselines, randomised search, cross-validation | ~4 min first run, ~30 s cached |
-| `04_evaluation.ipynb` | 5, 6.1, 6.2 – test set, ablations, model choice, interpretation | ~1.5 min |
+| `02_exploratory_analysis.ipynb` | 2.1–2.4 – stratified split, leakage check, summary statistics, distributions, correlation, EDA on the training set | ~25 s |
+| `03_modelling.ipynb` | 3.1, 3.2, 3.4, 4.1, 4.2 – eight algorithms, KFold vs StratifiedKFold, scaling, baselines, randomised and grid search | ~35 min first run, ~1.5 min cached |
+| `04_evaluation.ipynb` | 5 (template steps 1–7), 6.1, 6.2 – test set, L1 vs L2, ablations, learning curves, model choice | ~25 min first run, ~2 min cached |
 
 To reproduce everything from a clean kernel, including refitting every model instead of loading the cached searches
 from `models/`:
@@ -58,17 +58,47 @@ done
 
 All randomness is seeded (seed 42); a full refit reproduces every reported table exactly (only timings vary).
 
+## Run on Google Colab
+
+The notebooks also run on Google Colab; the first code cell of each notebook does the setup and does nothing locally.
+
+1. Upload the project folder to Google Drive so that it sits at `MyDrive/CMP6202_NIDS/Project/`. It needs `src/`,
+   `notebooks/`, `data/`, `reports/`, `pyproject.toml` and `requirements-colab.txt`. Notebook 01 and Step 6 (a) of
+   notebook 04 also need the raw CSV at `Project/IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv` (358 MB);
+   notebooks 02–04 otherwise read only the processed sample in `data/processed/`. Uploading the `models/` folder (cached
+   searches, ~40 MB) avoids several hours of retraining on Colab's two CPU cores.
+2. Open a notebook from Drive with Google Colab. If the folder is elsewhere, change `PROJECT_DIR` in the first cell.
+3. Run the first cell. It mounts Drive (approve access), installs the versions in `requirements-colab.txt` and adds
+   `src/` to the import path. If it reports that numpy or pandas was upgraded, choose *Runtime > Restart session* and
+   run it again, then run the remaining cells in order.
+
+Results were produced on the local environment described above; library versions are pinned so that Colab reproduces
+the same tables, but timings will differ.
+
 ## Main results
 
-| Model (hyper-parameters selected by CV macro F1) | CV macro F1 | Test accuracy | Test FTP recall | Training (s) | Inference (ms / 1,000 flows) |
-|---|---|---|---|---|---|
-| Logistic Regression | 0.9837 ± 0.0155 | 0.99987 | 9 / 9 | 0.69 | 1.22 |
-| **Decision Tree (selected)** | 0.9953 ± 0.0089 | 0.99993 | 9 / 9 | 0.45 | 0.58 |
-| Random Forest | 0.9955 ± 0.0089 | 0.99993 | 9 / 9 | 3.80 | 3.12 |
+Eight algorithms from the module (lab and lecture topics) share one pipeline, the same five stratified folds and the
+same metrics. Hyper-parameters below are the ones selected by cross-validated macro F1; the test set has 15,000 flows,
+9 of them FTP-BruteForce.
 
-The exact figures, with confidence intervals, are in `reports/tables/5_5_final_comparison.csv`; timings vary slightly
-between runs. Ablations show that the destination port is a label shortcut, that SMOTE brings no benefit on this data,
-and that Logistic Regression and the Random Forest partly rely on TCP values fixed by the attacking machines.
+| Model | CV macro F1 | Test errors | Test FTP recall | Inference (ms / 1,000 flows) | Macro F1 drop without host fingerprint |
+|---|---|---|---|---|---|
+| Decision Tree (recommended for deployment) | 0.99534 ± 0.00890 | 1 | 9 / 9 | 0.55 | 0.000 |
+| Random Forest | 0.99549 ± 0.00892 | 1 | 9 / 9 | 3.43 | 0.057 |
+| Gaussian Naive Bayes | 0.99952 ± 0.00029 | 3 | 9 / 9 | 1.24 | 0.171 |
+| **k-Nearest Neighbours (selected by the pre-registered rule)** | 0.99998 ± 0.00004 | 1 | 9 / 9 | 39.01 | 0.103 |
+| Logistic Regression | 0.98368 ± 0.01551 | 2 | 9 / 9 | 1.21 | 0.048 |
+| Support Vector Machine | 0.99547 ± 0.00891 | 2 | 9 / 9 | 2.18 | 0.008 |
+| Gradient Boosting | 0.99551 ± 0.00893 | 0 | 9 / 9 | 6.80 | 0.016 |
+| Multi-layer Perceptron | 0.99534 ± 0.00884 | 3 | 9 / 9 | 0.97 | 0.008 |
+
+Exact figures, with bootstrap confidence intervals, are in `reports/tables/5_7_final_comparison.csv`; timings vary
+between runs. The rule fixed before the test set was opened (highest CV macro F1, ties within one standard deviation
+broken by speed) selects k-Nearest Neighbours. The Decision Tree is recommended for deployment: it is within 0.01 macro
+F1 of the leader, about 70 times faster, readable as rules, and its score does not depend on TCP values fixed by the
+attacking machines. Ablations show that the destination port is a label shortcut, that SMOTE, class weights and Tomek
+links bring no consistent benefit on this data, and that L1 regularisation keeps only 19 of 69 features for Logistic
+Regression at almost the same macro F1.
 
 ## Layout
 
@@ -78,4 +108,5 @@ and that Logistic Regression and the Random Forest partly rely on TCP values fix
 | `notebooks/` | Annotated notebooks whose headings follow the report template |
 | `data/processed/` | Cleaned, de-duplicated 75,000-row sample (Parquet) and `manifest.json` (counts, seed, SHA-256) |
 | `reports/` | Figures (PNG, 300 dpi), tables (CSV) and copy-ready text for the report |
-| `tests/` | Checks for data integrity and train/test leakage |
+| `requirements-colab.txt` | Pinned library versions for Google Colab |
+| `tests/` | Checks for data integrity, train/test leakage, models, course techniques and executed notebooks (58 tests) |

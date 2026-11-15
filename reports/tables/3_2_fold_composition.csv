@@ -1,0 +1,4 @@
+,fold 1,fold 2,fold 3,fold 4,fold 5,min,max
+KFold (no shuffle),4,11,10,7,5,4,11
+KFold (shuffled),7,8,9,4,9,4,9
+StratifiedKFold (shuffled),7,7,7,8,8,7,8

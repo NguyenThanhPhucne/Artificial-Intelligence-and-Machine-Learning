@@ -1,0 +1,5 @@
+splitter,metric,mean,std,per_fold
+KFold (shuffled),accuracy,0.999883,8.5e-05,"0.9999, 1.0000, 0.9998, 0.9998, 0.9999"
+KFold (shuffled),f1_macro,0.996357,0.00696,"0.9999, 1.0000, 0.9998, 0.9997, 0.9824"
+StratifiedKFold (shuffled),accuracy,0.999883,0.000125,"0.9997, 1.0000, 1.0000, 0.9998, 0.9999"
+StratifiedKFold (shuffled),f1_macro,0.995423,0.008993,"0.9774, 1.0000, 1.0000, 0.9998, 0.9999"

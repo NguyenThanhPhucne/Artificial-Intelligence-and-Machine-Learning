@@ -72,7 +72,31 @@ def attribute_table(
     })
     table = reference.merge(observed, on="csv_column", how="left", validate="one_to_one")
     table["constant"] = table["n_unique"] == 1
+    table["level_of_measurement"] = [
+        level_of_measurement(row.csv_column, row.role, frame[row.csv_column])
+        for row in table.itertuples()
+    ]
     return table
+
+
+def level_of_measurement(column: str, role: str, values: pd.Series) -> str:
+    """Classify a column by Stevens' levels of measurement (weeks 2-3 of the module).
+
+    * Label and Protocol are nominal: the numbers 0, 6, 17 name protocols and have no order.
+    * Dst Port is nominal too: port 22 is not "more" than port 21.
+    * Timestamp is interval: differences between times are meaningful, but there is no true zero.
+    * Every other column is a count, a size in bytes, a duration or a rate, all with a true zero,
+      so they are ratio scale; I add whether the observed values are whole numbers (discrete) or not
+      (continuous). The -1 "no window observed" code in the window columns is a sentinel inside an
+      otherwise ratio-scale count, which I note in the report rather than here.
+    """
+    if column in (config.LABEL_COL, config.PROTOCOL_COL, config.DST_PORT_COL):
+        return "nominal"
+    if column == config.TIMESTAMP_COL:
+        return "interval"
+    numeric = pd.to_numeric(values, errors="coerce")
+    discrete = bool(np.all(np.mod(numeric.dropna(), 1) == 0))
+    return f"ratio ({'discrete' if discrete else 'continuous'})"
 
 
 # --- Row-wise cleaning ---------------------------------------------------------------------------

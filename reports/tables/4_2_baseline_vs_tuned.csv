@@ -1,10 +1,4 @@
 model,stage,metric,mean,std
-Logistic Regression,Baseline,f1_weighted,0.99977,0.00016
-Logistic Regression,Tuned,f1_weighted,0.99985,0.00012
-Logistic Regression,Baseline,f1_macro,0.97183,0.01626
-Logistic Regression,Tuned,f1_macro,0.97928,0.01325
-Logistic Regression,Baseline,recall_ftp,1.0,0.0
-Logistic Regression,Tuned,recall_ftp,1.0,0.0
 Decision Tree,Baseline,f1_weighted,0.99988,0.00012
 Decision Tree,Tuned,f1_weighted,0.99985,0.00014
 Decision Tree,Baseline,f1_macro,0.99542,0.00899
@@ -17,3 +11,39 @@ Random Forest,Baseline,f1_macro,0.99549,0.00892
 Random Forest,Tuned,f1_macro,0.99549,0.00892
 Random Forest,Baseline,recall_ftp,1.0,0.0
 Random Forest,Tuned,recall_ftp,1.0,0.0
+Gaussian Naive Bayes,Baseline,f1_weighted,0.99923,0.00024
+Gaussian Naive Bayes,Tuned,f1_weighted,0.99963,0.00023
+Gaussian Naive Bayes,Baseline,f1_macro,0.99901,0.00031
+Gaussian Naive Bayes,Tuned,f1_macro,0.99952,0.00029
+Gaussian Naive Bayes,Baseline,recall_ftp,1.0,0.0
+Gaussian Naive Bayes,Tuned,recall_ftp,1.0,0.0
+k-Nearest Neighbours,Baseline,f1_weighted,0.99987,0.0001
+k-Nearest Neighbours,Tuned,f1_weighted,0.99998,3e-05
+k-Nearest Neighbours,Baseline,f1_macro,0.9915,0.01028
+k-Nearest Neighbours,Tuned,f1_macro,0.99998,4e-05
+k-Nearest Neighbours,Baseline,recall_ftp,1.0,0.0
+k-Nearest Neighbours,Tuned,recall_ftp,1.0,0.0
+Logistic Regression,Baseline,f1_weighted,0.99977,0.00016
+Logistic Regression,Tuned,f1_weighted,0.99985,0.00012
+Logistic Regression,Baseline,f1_macro,0.97183,0.01626
+Logistic Regression,Tuned,f1_macro,0.97928,0.01325
+Logistic Regression,Baseline,recall_ftp,1.0,0.0
+Logistic Regression,Tuned,recall_ftp,1.0,0.0
+Support Vector Machine,Baseline,f1_weighted,0.9996,0.00024
+Support Vector Machine,Tuned,f1_weighted,0.99992,7e-05
+Support Vector Machine,Baseline,f1_macro,0.99047,0.01134
+Support Vector Machine,Tuned,f1_macro,0.99547,0.00891
+Support Vector Machine,Baseline,recall_ftp,0.97143,0.05714
+Support Vector Machine,Tuned,recall_ftp,1.0,0.0
+Gradient Boosting,Baseline,f1_weighted,0.99938,0.00067
+Gradient Boosting,Tuned,f1_weighted,0.99995,7e-05
+Gradient Boosting,Baseline,f1_macro,0.88332,0.1316
+Gradient Boosting,Tuned,f1_macro,0.99551,0.00893
+Gradient Boosting,Baseline,recall_ftp,0.62143,0.41625
+Gradient Boosting,Tuned,recall_ftp,1.0,0.0
+Multi-layer Perceptron,Baseline,f1_weighted,0.99993,6e-05
+Multi-layer Perceptron,Tuned,f1_weighted,0.99989,8e-05
+Multi-layer Perceptron,Baseline,f1_macro,0.99991,8e-05
+Multi-layer Perceptron,Tuned,f1_macro,0.98765,0.01655
+Multi-layer Perceptron,Baseline,recall_ftp,1.0,0.0
+Multi-layer Perceptron,Tuned,recall_ftp,1.0,0.0

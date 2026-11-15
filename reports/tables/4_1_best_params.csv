@@ -1,8 +1,4 @@
 model,parameter,selected value
-Logistic Regression,C,1.2229
-Logistic Regression,numeric transform,symlog
-Logistic Regression,SMOTE k_neighbors,5
-Logistic Regression,SMOTE sampling_strategy,500 FTP flows
 Decision Tree,criterion,entropy
 Decision Tree,max_depth,
 Decision Tree,min_samples_leaf,4
@@ -14,3 +10,40 @@ Random Forest,min_samples_leaf,1
 Random Forest,n_estimators,113
 Random Forest,SMOTE k_neighbors,5
 Random Forest,SMOTE sampling_strategy,"1,000 FTP flows"
+Gaussian Naive Bayes,var_smoothing,0.0004
+Gaussian Naive Bayes,numeric transform,passthrough
+Gaussian Naive Bayes,SMOTE k_neighbors,3
+Gaussian Naive Bayes,SMOTE sampling_strategy,"1,000 FTP flows"
+k-Nearest Neighbours,SMOTE sampling_strategy,500 FTP flows
+k-Nearest Neighbours,SMOTE k_neighbors,5
+k-Nearest Neighbours,scaler,MinMaxScaler
+k-Nearest Neighbours,numeric transform,passthrough
+k-Nearest Neighbours,weights,distance
+k-Nearest Neighbours,p,2
+k-Nearest Neighbours,n_neighbors,1
+Logistic Regression,C,1.2229
+Logistic Regression,numeric transform,symlog
+Logistic Regression,SMOTE k_neighbors,5
+Logistic Regression,SMOTE sampling_strategy,500 FTP flows
+Support Vector Machine,C,26.3733
+Support Vector Machine,class_weight,
+Support Vector Machine,gamma,0.1
+Support Vector Machine,kernel,linear
+Support Vector Machine,numeric transform,symlog
+Support Vector Machine,SMOTE k_neighbors,3
+Support Vector Machine,SMOTE sampling_strategy,"2,000 FTP flows"
+Gradient Boosting,l2_regularization,0.0121
+Gradient Boosting,learning_rate,0.0463
+Gradient Boosting,max_depth,3
+Gradient Boosting,max_iter,487
+Gradient Boosting,min_samples_leaf,29
+Gradient Boosting,SMOTE k_neighbors,5
+Gradient Boosting,SMOTE sampling_strategy,"1,000 FTP flows"
+Multi-layer Perceptron,activation,relu
+Multi-layer Perceptron,alpha,0.0004
+Multi-layer Perceptron,early_stopping,False
+Multi-layer Perceptron,hidden_layer_sizes,"(128, 64)"
+Multi-layer Perceptron,learning_rate_init,0.0006
+Multi-layer Perceptron,numeric transform,symlog
+Multi-layer Perceptron,SMOTE k_neighbors,3
+Multi-layer Perceptron,SMOTE sampling_strategy,500 FTP flows
