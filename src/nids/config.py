@@ -67,12 +67,23 @@ CV_FOLDS = 5
 # would learn the labelling procedure rather than the traffic.
 MODEL_EXCLUDED_COLS: tuple[str, ...] = (TIMESTAMP_COL, DST_PORT_COL)
 CATEGORICAL_COLS: tuple[str, ...] = (PROTOCOL_COL,)
+# Feature-selection ablation (report Step 5): 0.70 is the "high correlation" cut-off used in Lab 5;
+# 0.95 is a conservative setting that only merges near-duplicate columns. Testing both shows whether
+# any loss comes from removing redundancy or from removing genuinely different information.
+CORRELATION_THRESHOLDS: tuple[float, ...] = (0.70, 0.95)
 
 # --- Outputs -------------------------------------------------------------------------------------
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 SAMPLE_PARQUET = PROCESSED_DIR / "sample_75k_dedup.parquet"
 MANIFEST_JSON = PROCESSED_DIR / "manifest.json"
 SPLIT_PARQUET = PROCESSED_DIR / "split_assignment.parquet"
+# Unseen-day check (Week 6 lab, "Predict on New Data"): 15 February 2018 from the same dataset. It
+# holds benign traffic from another day and two DoS attacks my models never saw (GoldenEye,
+# Slowloris). I cap the sample so that it stays small enough to copy to Google Drive with the code.
+UNSEEN_DAY_CSV = RAW_DIR / "02-15-2018.csv"
+UNSEEN_DAY_PARQUET = PROCESSED_DIR / "unseen_day_02-15_sample.parquet"
+UNSEEN_BENIGN_CAP = 20_000
+UNSEEN_ATTACK_CAP = 5_000
 
 # Fitted searches are cached here (git-ignored); notebooks rebuild them when FORCE_RETRAIN is set.
 MODELS_DIR = PROJECT_ROOT / "models"
@@ -97,3 +108,4 @@ DATASET_URLS = {
     "aws_registry": "https://registry.opendata.aws/cse-cic-ids2018",
     "paper_doi": "https://doi.org/10.5220/0006639801080116",
 }
+UNSEEN_DAY_STAGES_CSV = TABLES_DIR / "5_6_unseen_day_stages.csv"

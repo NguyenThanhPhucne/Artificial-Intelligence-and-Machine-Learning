@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from imblearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import Pipeline as SkPipeline
@@ -52,6 +52,62 @@ def symlog_transformer() -> FunctionTransformer:
     return FunctionTransformer(symlog, feature_names_out="one-to-one")
 
 
+class CorrelationFilter(TransformerMixin, BaseEstimator):
+    """Drop numeric columns that are strongly rank-correlated with a column I already kept.
+
+    Lab 5 treats |r| >= 0.7 as a high correlation; two such columns carry largely the same
+    information, which makes linear coefficients unstable and costs fitting time. I use Spearman's
+    rank correlation rather than Pearson's because my EDA (section 2.3.3) showed that most strong
+    relationships between flow features are monotonic but curved, which Pearson under-states; ranks
+    are also unchanged by the optional symlog step, so the same columns are chosen with or without it.
+
+    The scan is greedy in input order: a column is kept when its |rho| with every column kept so far
+    is below `threshold`. The rule is learned in `fit` only, so inside a cross-validated pipeline each
+    training fold chooses its own columns and the validation fold never influences the choice.
+    """
+
+    def __init__(self, threshold: float = 0.7) -> None:
+        self.threshold = threshold
+
+    def fit(self, X, y=None) -> "CorrelationFilter":
+        frame = self._as_frame(X)
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.asarray(frame.columns, dtype=object)
+        # Pearson correlation of the ranks is Spearman's rho; NaN (a constant column) counts as 0.
+        rho = frame.rank().corr().abs().fillna(0.0).to_numpy()
+        names = list(frame.columns)
+        kept: list[int] = []
+        dropped: dict[str, str] = {}
+        for j in range(len(names)):
+            partner = next((k for k in kept if rho[j, k] >= self.threshold), None)
+            if partner is None:
+                kept.append(j)
+            else:
+                dropped[names[j]] = names[partner]
+        self.n_features_in_ = len(names)
+        self.kept_indices_ = np.array(kept, dtype=int)
+        self.kept_columns_ = [names[k] for k in kept]
+        self.dropped_ = dropped
+        return self
+
+    def transform(self, X):
+        if hasattr(X, "iloc"):
+            return X.iloc[:, self.kept_indices_]
+        return np.asarray(X)[:, self.kept_indices_]
+
+    def get_feature_names_out(self, input_features=None) -> np.ndarray:
+        if input_features is not None:
+            return np.asarray(input_features, dtype=object)[self.kept_indices_]
+        return np.asarray(self.kept_columns_, dtype=object)
+
+    @staticmethod
+    def _as_frame(X) -> pd.DataFrame:
+        if isinstance(X, pd.DataFrame):
+            return X
+        array = np.asarray(X, dtype=float)
+        return pd.DataFrame(array, columns=[f"x{i}" for i in range(array.shape[1])])
+
+
 def build_preprocessor(X: pd.DataFrame, include_dst_port: bool = False) -> ColumnTransformer:
     """Build the unfitted column transformer: one-hot Protocol, drop constants and scale numerics.
 
@@ -72,6 +128,8 @@ def build_preprocessor(X: pd.DataFrame, include_dst_port: bool = False) -> Colum
     numeric_steps = SkPipeline([
         ("log", "passthrough"),
         ("drop_constant", VarianceThreshold(threshold=0.0)),
+        # Off by default; the feature-selection ablation sets it to CorrelationFilter(threshold).
+        ("corr_filter", "passthrough"),
         ("scale", StandardScaler()),
     ])
     return ColumnTransformer(

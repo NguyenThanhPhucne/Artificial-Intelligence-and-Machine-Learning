@@ -1,0 +1,9 @@
+model,benign false alarms,benign ci_low,benign ci_high,DoS attacks-GoldenEye flagged,DoS attacks-GoldenEye as SSH,DoS attacks-Slowloris flagged,DoS attacks-Slowloris as SSH
+Decision Tree,0.00015,5.1e-05,0.000441,0.4638,0.4638,0.0092,0.0092
+Random Forest,0.0,0.0,0.000192,0.0,0.0,0.0,0.0
+Gaussian Naive Bayes,0.0,0.0,0.000192,0.0,0.0,0.0,0.0
+k-Nearest Neighbours,0.0001,2.7e-05,0.000365,0.7758,0.7758,0.0004,0.0002
+Logistic Regression,0.0,0.0,0.000192,0.0,0.0,0.0002,0.0002
+Support Vector Machine,0.0001,2.7e-05,0.000365,0.3206,0.3206,0.0106,0.0106
+Gradient Boosting,5e-05,9e-06,0.000283,0.0286,0.0286,0.0218,0.0218
+Multi-layer Perceptron,0.0001,2.7e-05,0.000365,0.21,0.21,0.0,0.0

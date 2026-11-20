@@ -1,0 +1,25 @@
+model,true label,flows,predicted Benign,predicted FTP-BruteForce,predicted SSH-Bruteforce
+Decision Tree,Benign,20000,0.99985,0.0,0.00015
+Decision Tree,DoS attacks-GoldenEye,5000,0.5362,0.0,0.4638
+Decision Tree,DoS attacks-Slowloris,5000,0.9908,0.0,0.0092
+Random Forest,Benign,20000,1.0,0.0,0.0
+Random Forest,DoS attacks-GoldenEye,5000,1.0,0.0,0.0
+Random Forest,DoS attacks-Slowloris,5000,1.0,0.0,0.0
+Gaussian Naive Bayes,Benign,20000,1.0,0.0,0.0
+Gaussian Naive Bayes,DoS attacks-GoldenEye,5000,1.0,0.0,0.0
+Gaussian Naive Bayes,DoS attacks-Slowloris,5000,1.0,0.0,0.0
+k-Nearest Neighbours,Benign,20000,0.9999,0.0,0.0001
+k-Nearest Neighbours,DoS attacks-GoldenEye,5000,0.2242,0.0,0.7758
+k-Nearest Neighbours,DoS attacks-Slowloris,5000,0.9996,0.0002,0.0002
+Logistic Regression,Benign,20000,1.0,0.0,0.0
+Logistic Regression,DoS attacks-GoldenEye,5000,1.0,0.0,0.0
+Logistic Regression,DoS attacks-Slowloris,5000,0.9998,0.0,0.0002
+Support Vector Machine,Benign,20000,0.9999,5e-05,5e-05
+Support Vector Machine,DoS attacks-GoldenEye,5000,0.6794,0.0,0.3206
+Support Vector Machine,DoS attacks-Slowloris,5000,0.9894,0.0,0.0106
+Gradient Boosting,Benign,20000,0.99995,0.0,5e-05
+Gradient Boosting,DoS attacks-GoldenEye,5000,0.9714,0.0,0.0286
+Gradient Boosting,DoS attacks-Slowloris,5000,0.9782,0.0,0.0218
+Multi-layer Perceptron,Benign,20000,0.9999,0.0,0.0001
+Multi-layer Perceptron,DoS attacks-GoldenEye,5000,0.79,0.0,0.21
+Multi-layer Perceptron,DoS attacks-Slowloris,5000,1.0,0.0,0.0

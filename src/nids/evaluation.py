@@ -34,7 +34,7 @@ from sklearn.model_selection import (
 )
 
 from . import config, models
-from .features import build_pipeline
+from .features import CorrelationFilter, build_pipeline
 
 SENTINEL_WINDOW_COLS = list(config.SENTINEL_NEGATIVE_COLS)
 # Columns that are constant within each attack and plausibly describe the attacking host's TCP stack
@@ -99,10 +99,11 @@ def variant_pipeline(
     run: models.SearchRun,
     X: pd.DataFrame,
     variant: str,
+    params: dict | None = None,
 ) -> tuple[BaseEstimator, pd.DataFrame]:
     """Rebuild the selected model of `run` for one ablation variant; return (pipeline, X to use).
 
-    Variants keep the tuned model hyper-parameters and change exactly one thing:
+    Variants keep the given (by default the refit) hyper-parameters and change exactly one thing:
       * "main"            – the tuned pipeline as selected (no Dst Port, SMOTE).
       * "with_dst_port"   – Dst Port added back as a numeric feature.
       * "no_window_sizes" – Init Fwd/Bwd Win Byts removed (suspected attacker fingerprint).
@@ -110,12 +111,16 @@ def variant_pipeline(
       * "class_weight"    – no SMOTE; the classifier weights classes inversely to their frequency.
       * "no_resampling"   – no SMOTE and no class weights.
       * "tomek_links"     – SMOTE replaced by Tomek-link under-sampling.
+      * "corr_filter_0.70", "corr_filter_0.95" – numeric columns whose Spearman |rho| with an earlier
+        kept column reaches the threshold are dropped inside each training fold (Lab 5 feature selection).
 
     Tomek links are pairs of nearest neighbours with different labels. Removing the majority-class
     member of each pair cleans the class boundary instead of inventing minority flows, the opposite
     strategy to SMOTE. Like SMOTE it runs after scaling (it is distance-based) and only during fit.
     """
-    params = run.search.best_params_
+    # `params` lets a caller ablate the setting it actually reports (for example the one chosen by macro F1);
+    # without it I use the search's refit setting (best weighted F1).
+    params = run.search.best_params_ if params is None else params
     model_params = {k.removeprefix("model__"): v for k, v in params.items() if k.startswith("model__")}
     other_params = {k: v for k, v in params.items() if not k.startswith(("model__", "resample__"))}
     resample_params = {k: v for k, v in params.items() if k.startswith("resample__")}
@@ -137,11 +142,19 @@ def variant_pipeline(
         sampler = None
     elif variant == "tomek_links":
         sampler = TomekLinks(sampling_strategy="auto", n_jobs=1)
+    elif variant.startswith("corr_filter_"):
+        threshold = float(variant.removeprefix("corr_filter_"))
+        if threshold not in config.CORRELATION_THRESHOLDS:
+            raise ValueError(f"Unknown variant {variant!r}")
     elif variant not in ("main", "with_dst_port"):
         raise ValueError(f"Unknown variant {variant!r}")
 
     pipeline = build_pipeline(X_variant, estimator, sampler=sampler, include_dst_port=include_port)
-    keep_smote_params = variant in ("main", "with_dst_port", "no_window_sizes", "no_host_fingerprint")
+    if variant.startswith("corr_filter_"):
+        pipeline.set_params(preprocess__numeric__corr_filter=CorrelationFilter(threshold))
+    keep_smote_params = variant in ("main", "with_dst_port", "no_window_sizes", "no_host_fingerprint") or (
+        variant.startswith("corr_filter_")
+    )
     pipeline.set_params(**other_params, **(resample_params if keep_smote_params else {}))
     return pipeline, X_variant
 
@@ -391,3 +404,36 @@ def learning_curve_table(
         "train_mean": np.nanmean(train, axis=1), "train_std": np.nanstd(train, axis=1),
         "valid_mean": np.nanmean(valid, axis=1), "valid_std": np.nanstd(valid, axis=1),
     })
+
+
+# --- Unseen day (Week 6 lab: predict on new data) --------------------------------------------------
+
+def wilson_interval(errors: int, n: int, z: float = 1.96) -> dict[str, float]:
+    """Error rate with a 95% Wilson score interval.
+
+    I use the Wilson interval rather than rate +/- 1.96 * SE because false alarms are rare: the
+    normal approximation gives a negative lower bound, or a zero-width interval when no error is seen.
+    """
+    rate = errors / n
+    centre = (rate + z**2 / (2 * n)) / (1 + z**2 / n)
+    half = z * np.sqrt(rate * (1 - rate) / n + z**2 / (4 * n**2)) / (1 + z**2 / n)
+    return {"rate": rate, "ci_low": max(0.0, centre - half), "ci_high": min(1.0, centre + half), "n": n}
+
+
+def unseen_day_report(model, flows: pd.DataFrame) -> pd.DataFrame:
+    """How a fitted model labels each true class of a new day's traffic.
+
+    Rows are the true labels of the new day (including attack types the model never saw); columns
+    give the number of flows and the share predicted as each of the model's three classes. For an
+    unseen attack, the "predicted Benign" share is the share of that attack the detector would miss.
+    """
+    X = flows.drop(columns=[config.LABEL_COL])
+    predicted = pd.Series(model.predict(X), index=flows.index)
+    table = pd.crosstab(flows[config.LABEL_COL], predicted, normalize="index")
+    for cls in ("Benign", "FTP-BruteForce", "SSH-Bruteforce"):
+        if cls not in table.columns:
+            table[cls] = 0.0
+    table = table[["Benign", "FTP-BruteForce", "SSH-Bruteforce"]].add_prefix("predicted ")
+    table.insert(0, "flows", flows[config.LABEL_COL].value_counts())
+    table.index.name = "true label"
+    return table

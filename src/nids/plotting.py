@@ -566,3 +566,203 @@ def plot_decision_tree(pipeline, max_depth: int = 3) -> Figure:
                  f"thresholds in standardised units; samples include the synthetic SMOTE flows")
     fig.tight_layout()
     return fig
+
+
+# --- Week 5-6 labs ---------------------------------------------------------------------------------
+
+PROTOCOL_NAMES = {0: "0 (HOPOPT)", 6: "6 (TCP)", 17: "17 (UDP)"}
+
+
+def plot_pearson_vs_spearman(pairs: pd.DataFrame, threshold: float = 0.7) -> Figure:
+    """Scatter |Spearman rho| against |Pearson r| for every feature pair, before and after symlog.
+
+    Points far above the y = x line are pairs whose relationship is monotonic but not linear
+    (Lab 5, Exercise 3). If symlog is a suitable transform, the symlog points move towards the line.
+    """
+    fig, ax = plt.subplots(figsize=(6.4, 5.6))
+    spearman = pairs["spearman"].abs()
+    ax.scatter(pairs["pearson_raw"].abs(), spearman, s=6, alpha=0.35, color=INK_MUTED, edgecolors="none",
+               label="Pearson on raw values")
+    ax.scatter(pairs["pearson_symlog"].abs(), spearman, s=6, alpha=0.35, color=INK, edgecolors="none",
+               label="Pearson after symlog")
+    ax.plot([0, 1], [0, 1], color=AXIS, linewidth=1, linestyle="--", label="y = x (equal measures)")
+    ax.axhline(threshold, color=GRID, linewidth=1)
+    ax.axvline(threshold, color=GRID, linewidth=1)
+    ax.text(threshold + 0.01, 0.02, f"|r| = {threshold} (Lab 5 cut-off)", fontsize=7, color=INK_SECONDARY)
+    ax.set_xlim(0, 1.02)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("|Pearson r| (linear association)")
+    ax.set_ylabel("|Spearman rho| (monotonic association)")
+    ax.set_title(f"Pearson versus Spearman correlation\n{len(pairs):,} feature pairs, training set")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=3, fontsize=7.5, markerscale=3, frameon=False)
+    fig.tight_layout()
+    return fig
+
+
+def plot_mosaic(counts: pd.DataFrame) -> Figure:
+    """Mosaic plot of two nominal variables: Protocol (columns) by class (stacked tiles).
+
+    Lab 5 (Exercise 2) recommends a mosaic plot for a pair of nominal variables: each column's width
+    is proportional to the number of flows with that protocol and each tile's height to the share of
+    a class within it, so the area of a tile is proportional to its count. Tiles too thin to label
+    (the 37 FTP flows) are labelled above their column.
+    """
+    counts = counts.reindex(columns=[c for c in ["Benign", "SSH-Bruteforce", "FTP-BruteForce"] if c in counts.columns])
+    counts = counts.fillna(0)
+    totals = counts.sum(axis=1)
+    widths = totals / totals.sum()
+    gap = 0.01
+    fig, ax = plt.subplots(figsize=(7.0, 4.4))
+    left = 0.0
+    ticks, labels = [], []
+    for protocol, row in counts.iterrows():
+        width = float(widths.loc[protocol]) - gap
+        bottom = 0.0
+        thin: list[str] = []
+        for cls, count in row.items():
+            if count == 0:
+                continue
+            height = count / totals.loc[protocol]
+            ax.add_patch(mpl.patches.Rectangle((left, bottom), width, height, facecolor=CLASS_COLORS[cls],
+                                               edgecolor=SURFACE, linewidth=1))
+            text = f"{cls}\n{int(count):,} ({height:.1%})"
+            if height >= 0.12 and width >= 0.12:
+                ax.text(left + width / 2, bottom + height / 2, text, ha="center", va="center", fontsize=7,
+                        color=SURFACE)
+            elif width >= 0.12:
+                thin.append(f"{cls}: {int(count):,} ({height:.2%})")
+            bottom += height
+        if thin:
+            ax.text(left + width / 2, 1.02, "\n".join(thin), ha="center", va="bottom", fontsize=7, color=INK)
+        ticks.append(left + width / 2)
+        label = f"{PROTOCOL_NAMES.get(int(protocol), str(protocol))}\nn = {int(totals.loc[protocol]):,}"
+        if width < 0.12:  # too narrow for tile labels: state the composition under the column instead
+            label += "".join(f"\n{c}: {v / totals.loc[protocol]:.0%}" for c, v in row.items() if v > 0)
+        labels.append(label)
+        left += width + gap
+    ax.set_xlim(0, left)
+    ax.set_ylim(0, 1.18)
+    ax.set_xticks(ticks, labels, fontsize=8)
+    ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0], ["0%", "25%", "50%", "75%", "100%"])
+    ax.set_ylabel("Share of flows within the protocol")
+    ax.set_xlabel("Protocol (column width proportional to number of flows)")
+    ax.set_title("Mosaic plot of Protocol by class (training set)")
+    handles = [mpl.patches.Patch(color=CLASS_COLORS[c], label=c) for c in CLASS_ORDER if c in counts.columns]
+    ax.legend(handles=handles, loc="upper right", ncol=3, fontsize=8, frameon=False)
+    ax.grid(False)
+    fig.tight_layout()
+    return fig
+
+
+def plot_pair_matrix(X: pd.DataFrame, y: pd.Series, columns: list[str]) -> Figure:
+    """Scatter matrix (pair plot) of a few features coloured by class, on symlog-transformed values.
+
+    The Week 6 lab draws a scatter matrix on a 2,000-row subsample; I pass a subsample that keeps
+    every FTP flow (see eda.stratified_subsample). The diagonal shows each feature's histogram per
+    class; I draw the rare classes last so benign points do not hide them.
+    """
+    from .features import symlog
+
+    values = symlog(X[columns].astype(float))
+    n = len(columns)
+    fig, axes = plt.subplots(n, n, figsize=(2.3 * n, 2.3 * n))
+    order = ["Benign", "SSH-Bruteforce", "FTP-BruteForce"]
+    for i, row_col in enumerate(columns):
+        for j, col_col in enumerate(columns):
+            ax = axes[i, j]
+            if i == j:
+                column = values[col_col].to_numpy()
+                bins = np.linspace(column.min(), column.max(), 31)
+                ax.set_title("share of each class per bin", fontsize=6.5, color=INK_SECONDARY)
+            for cls in order:
+                mask = (y == cls).to_numpy()
+                if i == j:
+                    # Weights of 1/n per class make bar heights comparable across classes of very
+                    # different sizes (37 FTP versus ~1,700 benign flows).
+                    part = column[mask]
+                    ax.hist(part, bins=bins, color=CLASS_COLORS[cls], alpha=0.6,
+                            weights=np.full(len(part), 1 / max(len(part), 1)))
+                else:
+                    ax.scatter(values[col_col].to_numpy()[mask], values[row_col].to_numpy()[mask],
+                               s=4 if cls == "Benign" else 10, alpha=0.3 if cls == "Benign" else 0.8,
+                               color=CLASS_COLORS[cls], edgecolors="none")
+            ax.tick_params(labelsize=6)
+            if i == n - 1:
+                ax.set_xlabel(f"symlog({col_col})", fontsize=7)
+            if j == 0:
+                ax.set_ylabel(f"symlog({row_col})", fontsize=7)
+    counts = y.value_counts()
+    handles = [mpl.patches.Patch(color=CLASS_COLORS[c], label=f"{c} (n={counts.get(c, 0):,})") for c in CLASS_ORDER]
+    fig.legend(handles=handles, loc="upper center", ncol=3, fontsize=8, frameon=False, bbox_to_anchor=(0.5, 1.0))
+    fig.suptitle(f"Pair plot of {n} high-information features ({len(y):,}-flow training subsample)", y=1.03,
+                 fontsize=10)
+    fig.tight_layout()
+    return fig
+
+
+def plot_importance_pair(left: pd.Series, right: pd.Series, titles: tuple[str, str], top: int = 10) -> Figure:
+    """Top-`top` impurity importances of two tree models side by side (Week 6 lab, template Step 4).
+
+    Showing the single tree next to the forest makes the contrast visible: a tree concentrates its
+    splits on a few columns, whereas a forest spreads importance over many correlated columns.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(11, 0.34 * top + 1.4))
+    for ax, series, title in zip(axes, (left, right), titles):
+        chosen = series.nlargest(top).sort_values()
+        positions = np.arange(len(chosen))
+        ax.barh(positions, chosen.to_numpy(), height=0.6, color=INK_SECONDARY)
+        for pos, value in zip(positions, chosen.to_numpy()):
+            ax.text(value + chosen.max() * 0.01, pos, f"{value:.3f}", va="center", fontsize=7.5)
+        ax.set_yticks(positions, chosen.index, fontsize=8)
+        ax.set_xlim(0, chosen.max() * 1.18)
+        ax.set_xlabel("Impurity importance (share of total)")
+        ax.set_title(f"{title}: top {top} features")
+        ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    return fig
+
+
+def plot_unseen_day(table: pd.DataFrame) -> Figure:
+    """Behaviour of each model on traffic from a day it never saw (15 February 2018).
+
+    Left: the share of that day's benign flows raised as an attack (false alarms), with 95% Wilson
+    intervals. Right: the share of each unseen DoS attack labelled as *some* attack (FTP or SSH);
+    the rest is labelled Benign and would be missed. The models were never trained on DoS, so the
+    right panel measures whether they react to attack-like traffic in general, not correct naming.
+    """
+    models_ = list(table.index)
+    attacks = [c for c in table.columns if c.endswith(" flagged")]
+    fig, (left, right) = plt.subplots(1, 2, figsize=(11, 0.42 * len(models_) + 1.6), sharey=True)
+    positions = np.arange(len(models_))
+    rate = table["benign false alarms"].to_numpy()
+    err = np.vstack([rate - table["benign ci_low"].to_numpy(), table["benign ci_high"].to_numpy() - rate])
+    left.barh(positions, rate, height=0.6, color=INK_SECONDARY, xerr=err, error_kw={"ecolor": INK, "capsize": 2})
+    # Rates here are tiny (a few flows in 20,000), so offsets and limits scale with the data, not with 100%.
+    span = max(float(table["benign ci_high"].max()), 1e-4)
+    # Labels sit just beyond each interval so they never overlap the error bars.
+    for pos, value, high in zip(positions, rate, table["benign ci_high"].to_numpy()):
+        left.text(high + span * 0.02, pos, f"{value:.3%}", va="center", fontsize=7.5)
+    left.set_xlim(0, span * 1.25)
+    left.set_yticks(positions, models_, fontsize=8)
+    left.invert_yaxis()
+    left.set_xlabel("Share of new-day benign flows flagged as an attack")
+    left.set_title("False alarms on unseen benign traffic")
+    left.xaxis.set_major_formatter(mpl.ticker.PercentFormatter(1.0))
+    inks = [INK, INK_MUTED]
+    height = 0.8 / max(len(attacks), 1)
+    for k, column in enumerate(attacks):
+        offset = (k - (len(attacks) - 1) / 2) * height
+        values = table[column].to_numpy()
+        right.barh(positions + offset, values, height=height * 0.9, color=inks[k % len(inks)],
+                   label=column.removesuffix(" flagged").replace("DoS attacks-", "DoS "))
+        for pos, value in zip(positions + offset, values):
+            right.text(value + 0.01, pos, f"{value:.0%}", va="center", fontsize=7)
+    right.set_xlim(0, 1.12)
+    right.xaxis.set_major_formatter(mpl.ticker.PercentFormatter(1.0))
+    right.set_xlabel("Share of unseen attack flows flagged as an attack")
+    right.set_title("Unseen DoS attacks raised as any attack")
+    right.legend(loc="lower right", fontsize=8, frameon=False)
+    for ax in (left, right):
+        ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    return fig

@@ -167,3 +167,71 @@ def port_profile(X: pd.DataFrame, y: pd.Series, top: int = 3) -> pd.DataFrame:
             "distinct_ports_in_class": ports.nunique(),
         }))
     return pd.concat(frames, ignore_index=True)
+
+
+# --- Week 5 lab: Pearson versus Spearman -----------------------------------------------------------
+
+CORRELATION_METHODS = ("pearson_raw", "pearson_symlog", "spearman")
+
+
+def pairwise_correlations(X_numeric: pd.DataFrame) -> pd.DataFrame:
+    """Return one row per unordered pair of non-constant columns with three correlation measures.
+
+    Lab 5 (Exercise 3) contrasts Pearson's r, which measures *linear* association, with Spearman's
+    rank correlation, which measures any *monotonic* association; a Spearman value well above the
+    Pearson value suggests a curved (for example logarithmic) relationship that a log transform
+    would straighten. I therefore also report Pearson after my symlog transform: if symlog is the
+    right transform, it should bring Pearson close to Spearman.
+    """
+    frame = X_numeric.loc[:, X_numeric.nunique() > 1].astype(float)
+    matrices = {
+        "pearson_raw": frame.corr(method="pearson"),
+        "pearson_symlog": symlog(frame).corr(method="pearson"),
+        "spearman": frame.corr(method="spearman"),
+    }
+    upper_i, upper_j = np.triu_indices(frame.shape[1], k=1)
+    names = np.asarray(frame.columns, dtype=object)
+    pairs = pd.DataFrame({"feature_a": names[upper_i], "feature_b": names[upper_j]})
+    for method, matrix in matrices.items():
+        pairs[method] = matrix.to_numpy()[upper_i, upper_j]
+    return pairs
+
+
+def correlation_method_counts(
+    pairs: pd.DataFrame, thresholds: tuple[float, ...] = (0.7, 0.9, 0.95)
+) -> pd.DataFrame:
+    """Count the pairs whose |correlation| reaches each threshold, for each measure.
+
+    0.7 is the "high correlation" cut-off used in the Week 5 lab; 0.9 and 0.95 show how the picture
+    changes for near-duplicate columns.
+    """
+    counts = {
+        method: [int((pairs[method].abs() >= t).sum()) for t in thresholds] for method in CORRELATION_METHODS
+    }
+    return pd.DataFrame(counts, index=pd.Index(list(thresholds), name="threshold"))
+
+
+# --- Week 6 lab: subsample for a readable pair plot -----------------------------------------------
+
+def stratified_subsample(
+    X: pd.DataFrame, y: pd.Series, n: int, keep_all: str = "FTP-BruteForce", seed: int = config.SEED
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Draw `n` training rows for plotting, keeping every row of the class `keep_all`.
+
+    The Week 6 lab subsamples 2,000 rows so that a scatter matrix stays readable. A plain random
+    draw would keep almost no FTP flows (37 of 60,000), so I keep all of them and fill the rest of
+    the sample in proportion to the other classes.
+    """
+    rare = y.index[y == keep_all]
+    others = y.drop(index=rare)
+    remaining = n - len(rare)
+    shares = others.value_counts(normalize=True)
+    quotas = (shares * remaining).round().astype(int)
+    quotas.iloc[0] += remaining - quotas.sum()  # make the total exactly n after rounding
+    rng = np.random.default_rng(seed)
+    chosen = list(rare)
+    for label, quota in quotas.items():
+        pool = others.index[others == label].to_numpy()
+        chosen.extend(rng.choice(pool, size=min(quota, len(pool)), replace=False))
+    index = pd.Index(sorted(chosen))
+    return X.loc[index], y.loc[index]

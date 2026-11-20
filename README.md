@@ -13,6 +13,10 @@ from the CSE-CIC-IDS2018 bucket on the Registry of Open Data on AWS
 IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv
 ```
 
+The unseen-day check in notebook 04 (Step 6 d) uses a second file of the same dataset,
+`Thursday-15-02-2018_TrafficForML_CICFlowMeter.csv` (Kaggle: `02-15-2018.csv`), placed in the same folder. It is only
+needed to rebuild `data/processed/unseen_day_02-15_sample.parquet`, which is included.
+
 ### Licence and citation
 
 - **Licence:** CC BY 4.0 (Attribution 4.0 International), <https://creativecommons.org/licenses/by/4.0/>, as listed
@@ -25,6 +29,9 @@ IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv
   `02-14-2018.csv`. I removed rows with Infinity/NaN or impossible negative values, removed duplicate and
   contradictory flows, and drew a stratified sample of 75,000 rows (seed 42). The steps and counts are in
   `notebooks/01_data_preparation.ipynb` and `data/processed/manifest.json`.
+  `data/processed/unseen_day_02-15_sample.parquet` is derived from `02-15-2018.csv` with the same cleaning and
+  de-duplication, after removing flows whose features already occur in the 75,000-row sample, and a sample of 20,000
+  benign and 5,000 flows of each attack (seed 42); stage counts are in `reports/tables/5_6_unseen_day_stages.csv`.
 
 Reference (BCU Harvard):
 
@@ -58,12 +65,26 @@ done
 
 All randomness is seeded (seed 42); a full refit reproduces every reported table exactly (only timings vary).
 
+## Predict new flows
+
+The recommended model (the Decision Tree) labels any CSV with the CICFlowMeter columns of CSE-CIC-IDS2018:
+
+```bash
+uv run python -m nids.predict "IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-15-2018.csv" --out predictions.csv
+```
+
+It applies the same row-wise cleaning as notebook 01 (rows with Infinity, NaN or impossible negative values are dropped
+and counted), then the fitted pipeline. Notebook 04 saves the model to `models/final_decision_tree.joblib`; in a fresh
+clone the command rebuilds it from the search in about 20 seconds. The model only knows Benign, FTP-BruteForce and
+SSH-Bruteforce, so every other attack is given one of these three labels.
+
 ## Run on Google Colab
 
 The notebooks also run on Google Colab; the first code cell of each notebook does the setup and does nothing locally.
 
 1. Upload the project folder to Google Drive so that it sits at `MyDrive/CMP6202_NIDS/Project/`. It needs `src/`,
-   `notebooks/`, `data/`, `reports/`, `pyproject.toml` and `requirements-colab.txt`. Notebook 01 and Step 6 (a) of
+   `notebooks/`, `data/`, `reports/`, `pyproject.toml` and `requirements-colab.txt`. Step 6 (d) of notebook 04 reads
+   the stored 15 February sample in `data/processed/`, so the second raw file is not needed. Notebook 01 and Step 6 (a) of
    notebook 04 also need the raw CSV at `Project/IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv` (358 MB);
    notebooks 02–04 otherwise read only the processed sample in `data/processed/`. Uploading the `models/` folder (cached
    searches, ~40 MB) avoids several hours of retraining on Colab's two CPU cores.
@@ -78,27 +99,39 @@ the same tables, but timings will differ.
 ## Main results
 
 Eight algorithms from the module (lab and lecture topics) share one pipeline, the same five stratified folds and the
-same metrics. Hyper-parameters below are the ones selected by cross-validated macro F1; the test set has 15,000 flows,
-9 of them FTP-BruteForce.
+same metrics. Hyper-parameters below are the ones selected by cross-validated macro F1; the test set has
+15,000 flows, 9 of them FTP-BruteForce. Test errors range from 0 to 3 per
+model, and every model finds all FTP test flows.
 
 | Model | CV macro F1 | Test errors | Test FTP recall | Inference (ms / 1,000 flows) | Macro F1 drop without host fingerprint |
 |---|---|---|---|---|---|
-| Decision Tree (recommended for deployment) | 0.99534 ± 0.00890 | 1 | 9 / 9 | 0.55 | 0.000 |
-| Random Forest | 0.99549 ± 0.00892 | 1 | 9 / 9 | 3.43 | 0.057 |
-| Gaussian Naive Bayes | 0.99952 ± 0.00029 | 3 | 9 / 9 | 1.24 | 0.171 |
-| **k-Nearest Neighbours (selected by the pre-registered rule)** | 0.99998 ± 0.00004 | 1 | 9 / 9 | 39.01 | 0.103 |
-| Logistic Regression | 0.98368 ± 0.01551 | 2 | 9 / 9 | 1.21 | 0.048 |
-| Support Vector Machine | 0.99547 ± 0.00891 | 2 | 9 / 9 | 2.18 | 0.008 |
-| Gradient Boosting | 0.99551 ± 0.00893 | 0 | 9 / 9 | 6.80 | 0.016 |
-| Multi-layer Perceptron | 0.99534 ± 0.00884 | 3 | 9 / 9 | 0.97 | 0.008 |
+| Decision Tree (recommended for deployment) | 0.99534 ± 0.00890 | 1 | 9 / 9 | 0.60 | 0.0051 |
+| Random Forest | 0.99549 ± 0.00892 | 1 | 9 / 9 | 3.48 | 0.0568 |
+| Gaussian Naive Bayes | 0.99952 ± 0.00029 | 3 | 9 / 9 | 1.24 | 0.1709 |
+| **k-Nearest Neighbours (selected by the pre-registered rule)** | 0.99998 ± 0.00004 | 1 | 9 / 9 | 34.12 | 0.1028 |
+| Logistic Regression | 0.98368 ± 0.01551 | 2 | 9 / 9 | 1.25 | 0.0080 |
+| Support Vector Machine | 0.99547 ± 0.00891 | 2 | 9 / 9 | 2.19 | 0.0079 |
+| Gradient Boosting | 0.99551 ± 0.00893 | 0 | 9 / 9 | 12.10 | 0.0163 |
+| Multi-layer Perceptron | 0.99534 ± 0.00884 | 3 | 9 / 9 | 0.89 | 0.0840 |
 
 Exact figures, with bootstrap confidence intervals, are in `reports/tables/5_7_final_comparison.csv`; timings vary
 between runs. The rule fixed before the test set was opened (highest CV macro F1, ties within one standard deviation
-broken by speed) selects k-Nearest Neighbours. The Decision Tree is recommended for deployment: it is within 0.01 macro
-F1 of the leader, about 70 times faster, readable as rules, and its score does not depend on TCP values fixed by the
-attacking machines. Ablations show that the destination port is a label shortcut, that SMOTE, class weights and Tomek
-links bring no consistent benefit on this data, and that L1 regularisation keeps only 19 of 69 features for Logistic
-Regression at almost the same macro F1.
+broken by speed) selects k-Nearest Neighbours. The Decision Tree is recommended for deployment: it is 0.00464 macro F1 below the leader,
+about 57 times faster at inference, readable as rules, and it loses only 0.0051 macro F1 when the TCP values fixed by the attacking machines are withheld. In the ablations no model gains more than one standard deviation from the destination port, which stays excluded as a label proxy;
+SMOTE helped beyond one standard deviation for no model, class weights and Tomek links brought no
+consistent benefit, and L1 regularisation keeps 19 of 69 features for Logistic Regression at
+macro F1 0.9830 (L2: 0.9671).
+
+Correlation-based feature selection (Week 5 lab) keeps 16 of 66 numeric features at
+|rho| ≥ 0.7, but 8 of 8 models then lose more than one standard deviation of macro F1; at 0.95
+(39 features kept) all 8 hold. On a day the models never saw (15 February 2018,
+`reports/tables/5_6_unseen_day.csv`) they raise 0–3 false alarms on
+20,000 benign flows, but they were never trained on DoS: the Decision Tree flags only
+46% of DoS-GoldenEye and 1% of DoS-Slowloris flows, and
+98% of the flows it flags carry the attacking hosts' TCP fingerprint. Refitted
+without those TCP columns, it flags 0% of GoldenEye and 0% of Slowloris
+(`reports/tables/5_6_unseen_day_tree_without_fingerprint.csv`): its unseen-day alarms come from recognising the
+attacking machines.
 
 ## Layout
 
@@ -109,4 +142,4 @@ Regression at almost the same macro F1.
 | `data/processed/` | Cleaned, de-duplicated 75,000-row sample (Parquet) and `manifest.json` (counts, seed, SHA-256) |
 | `reports/` | Figures (PNG, 300 dpi), tables (CSV) and copy-ready text for the report |
 | `requirements-colab.txt` | Pinned library versions for Google Colab |
-| `tests/` | Checks for data integrity, train/test leakage, models, course techniques and executed notebooks (58 tests) |
+| `tests/` | Checks for data integrity, train/test leakage, models, course techniques, the unseen day, the predictor and executed notebooks (85 tests) |

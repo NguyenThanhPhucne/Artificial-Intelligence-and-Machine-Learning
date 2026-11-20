@@ -1,0 +1,9 @@
+model,DoS flows flagged,share of flagged with fingerprint,share of fingerprinted flagged,share of non-fingerprinted flagged
+Decision Tree,2365,0.98055,0.336038,0.014843
+Random Forest,0,,0.0,0.0
+Gaussian Naive Bayes,0,,0.0,0.0
+k-Nearest Neighbours,3881,0.725329,0.407912,0.343982
+Logistic Regression,1,0.0,0.0,0.000323
+Support Vector Machine,1656,0.0,0.0,0.534366
+Gradient Boosting,252,0.626984,0.022895,0.030332
+Multi-layer Perceptron,1050,0.0,0.0,0.338819

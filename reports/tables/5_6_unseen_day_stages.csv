@@ -1,0 +1,5 @@
+,Benign,DoS attacks-GoldenEye,DoS attacks-Slowloris
+raw,996077,41508,10990
+unique,743449,41406,9859
+removed_as_known,6515,0,0
+sampled,20000,5000,5000

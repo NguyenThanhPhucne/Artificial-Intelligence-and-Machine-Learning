@@ -461,3 +461,59 @@ def load_sample(path: Path = config.SAMPLE_PARQUET) -> pd.DataFrame:
     sample = pd.read_parquet(path)
     sample[LABEL] = sample[LABEL].astype("category")
     return sample
+
+
+# --- Unseen day (Week 6 lab: predict on new data) --------------------------------------------------
+
+def unseen_day_sample(
+    known: pd.DataFrame,
+    path: Path | None = None,
+    benign_cap: int = config.UNSEEN_BENIGN_CAP,
+    attack_cap: int = config.UNSEEN_ATTACK_CAP,
+    seed: int = config.SEED,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Clean and de-duplicate another day's file exactly as I did for 14 February, then sample it.
+
+    Any flow whose feature vector (ignoring Timestamp and Dst Port) already appears in `known`
+    (my 75,000-flow sample) is removed: otherwise a "new day" score would partly re-test flows the
+    model was trained or tested on, and the false-alarm rate would look better than it is.
+    Returns the sampled flows and a table of row counts per label at each stage.
+    """
+    path = config.UNSEEN_DAY_CSV if path is None else path
+    flows, report = build_unique_flows(path)
+    known_hashes = set(flow_hash(known[flows.columns]))
+    is_known = flow_hash(flows).isin(known_hashes).to_numpy()
+    removed = flows.loc[is_known, LABEL].value_counts()
+    fresh = flows.loc[~is_known]
+    parts = []
+    for label, group in fresh.groupby(LABEL, observed=True):
+        cap = benign_cap if label == "Benign" else attack_cap
+        parts.append(group.sample(n=min(cap, len(group)), random_state=seed))
+    sample = pd.concat(parts).sort_index().reset_index(drop=True)
+    sample[LABEL] = sample[LABEL].astype(str)
+    stages = pd.DataFrame(
+        {
+            "raw": report.raw,
+            "unique": report.unique,
+            "removed_as_known": removed,
+            "sampled": sample[LABEL].value_counts(),
+        }
+    ).T.fillna(0).astype("int64")
+    stages.columns = [str(c) for c in stages.columns]
+    return sample, stages
+
+
+def load_or_build_unseen_day(known: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return the stored unseen-day sample if it exists, otherwise build and store it.
+
+    Building needs the 350 MB CSV of 15 February; the stored parquet (a few MB) lets the notebooks
+    run on Google Colab without uploading that file.
+    """
+    if config.UNSEEN_DAY_PARQUET.exists() and config.UNSEEN_DAY_STAGES_CSV.exists():
+        return pd.read_parquet(config.UNSEEN_DAY_PARQUET), pd.read_csv(config.UNSEEN_DAY_STAGES_CSV, index_col=0)
+    sample, stages = unseen_day_sample(known)
+    config.UNSEEN_DAY_PARQUET.parent.mkdir(parents=True, exist_ok=True)
+    sample.to_parquet(config.UNSEEN_DAY_PARQUET, index=False)
+    config.UNSEEN_DAY_STAGES_CSV.parent.mkdir(parents=True, exist_ok=True)
+    stages.to_csv(config.UNSEEN_DAY_STAGES_CSV)
+    return sample, stages
