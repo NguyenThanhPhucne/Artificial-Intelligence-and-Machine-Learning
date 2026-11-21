@@ -22,8 +22,8 @@ def load() -> dict[str, str]:
     return json.loads(NUMBERS_JSON.read_text())
 
 
-def record(**values: str | int | float) -> None:
-    """Merge `values` into the store, overwriting existing keys, and keep the keys sorted.
+def record(**values: str | int | float) -> dict[str, str]:
+    """Merge `values` into the store, overwriting existing keys, keep the keys sorted, and return them.
 
     I refuse floats with more than four decimals: such a value has not been formatted for the reader
     yet, and silently printing 0.123456789 in a report would be a presentation error.
@@ -35,3 +35,5 @@ def record(**values: str | int | float) -> None:
     stored.update({key: str(value) for key, value in values.items()})
     NUMBERS_JSON.parent.mkdir(parents=True, exist_ok=True)
     NUMBERS_JSON.write_text(json.dumps(dict(sorted(stored.items())), indent=1, ensure_ascii=False) + "\n")
+    # Returned so the notebook cell that records them also displays them next to the code that computed them.
+    return {key: str(value) for key, value in values.items()}

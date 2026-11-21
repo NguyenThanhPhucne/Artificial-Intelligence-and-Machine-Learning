@@ -57,8 +57,9 @@ class CorrelationFilter(TransformerMixin, BaseEstimator):
 
     Lab 5 treats |r| >= 0.7 as a high correlation; two such columns carry largely the same
     information, which makes linear coefficients unstable and costs fitting time. I use Spearman's
-    rank correlation rather than Pearson's because my EDA (section 2.3.3) showed that most strong
-    relationships between flow features are monotonic but curved, which Pearson under-states; ranks
+    rank correlation rather than Pearson's because my EDA (notebook 02, "Pearson or Spearman?"; report
+    section 2.3) showed that most strong relationships between flow features are monotonic but curved,
+    which Pearson under-states; ranks
     are also unchanged by the optional symlog step, so the same columns are chosen with or without it.
 
     The scan is greedy in input order: a column is kept when its |rho| with every column kept so far

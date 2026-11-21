@@ -92,7 +92,6 @@ N_SEARCH_ITER = 20
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 TABLES_DIR = REPORTS_DIR / "tables"
-TEXT_DIR = REPORTS_DIR / "text"
 FIGURE_DPI = 300
 
 # --- Licence and citation (checked 26/10/2026) ---------------------------------------------------

@@ -8,6 +8,8 @@ without turning the test set into a second validation set.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import time
 import warnings
 
@@ -437,3 +439,33 @@ def unseen_day_report(model, flows: pd.DataFrame) -> pd.DataFrame:
     table.insert(0, "flows", flows[config.LABEL_COL].value_counts())
     table.index.name = "true label"
     return table
+
+
+def final_comparison_table(
+    selection: pd.DataFrame, fingerprint_drop: Mapping[str, float], order: list[str]
+) -> pd.DataFrame:
+    """Build the comparison of all algorithms that the report shows as its main results table.
+
+    `selection` holds one row per model with the settings re-selected by macro F1 (notebook 04, Step 5),
+    and `fingerprint_drop` the cross-validated macro F1 each model loses without the attacking hosts' TCP
+    settings. I format the scores as text here because the table is read by people: five decimals for
+    the cross-validated score, so k-NN's tiny spread does not print as "1.0 ± 0.0", and the test score
+    with its 95% bootstrap interval in one cell.
+    """
+    def fixed(values: pd.Series, digits: int) -> pd.Series:
+        return values.map(f"{{:.{digits}f}}".format)
+
+    # round(v, 4) + 0.0 turns a tiny negative drop into 0.0 rather than printing "-0.0000".
+    drop = pd.Series(fingerprint_drop).map(lambda v: f"{round(v, 4) + 0.0:.4f}")
+    table = pd.DataFrame({
+        "CV macro F1": fixed(selection["cv_f1_macro (macro-selected)"], 5) + " ± " + fixed(selection["cv_f1_macro_std"], 5),
+        "Test accuracy": fixed(selection["test_accuracy"], 5),
+        "Test macro F1 [95% CI]": fixed(selection["test_f1_macro"], 4) + " [" + fixed(selection["test_ci_low"], 4)
+                                  + ", " + fixed(selection["test_ci_high"], 4) + "]",
+        "Test errors (of 15,000)": selection["test_errors"],
+        "Test FTP recall": selection["test_recall_ftp"],
+        "Training time (s)": selection["fit_seconds"].round(2),
+        "Inference (ms / 1,000 flows)": selection["inference_ms_per_1000"].round(2),
+        "Macro F1 drop without host fingerprint": drop,
+    })
+    return table.reindex(order)
