@@ -88,7 +88,8 @@ The notebooks also run on Google Colab; the first code cell of each notebook doe
    the stored 15 February sample in `data/processed/`, so the second raw file is not needed. Notebook 01 and Step 6 (a) of
    notebook 04 also need the raw CSV at `Project/IDS 2018 Intrusion CSVs (CSE-CIC-IDS2018)/02-14-2018.csv` (358 MB);
    notebooks 02–04 otherwise read only the processed sample in `data/processed/`. Uploading the `models/` folder (cached
-   searches, ~40 MB) avoids several hours of retraining on Colab's two CPU cores.
+   searches, including the eight re-tuned without the host fingerprint, ~80 MB) avoids several hours of retraining on
+   Colab's two CPU cores.
 2. Open a notebook from Drive with Google Colab. If the folder is elsewhere, add its path to `candidates` in the
    first cell.
 3. Run the first cell. It mounts Drive (approve access), installs the versions in `requirements-colab.txt` and adds
@@ -105,21 +106,21 @@ same metrics. Hyper-parameters below are the ones selected by cross-validated ma
 15,000 flows, 9 of them FTP-BruteForce. Test errors range from 0 to 3 per
 model, and every model finds all FTP test flows.
 
-| Model | CV macro F1 | Test errors | Test FTP recall | Inference (ms / 1,000 flows) | Macro F1 drop without host fingerprint |
+| Model | CV macro F1 | Test errors | Test FTP recall | Inference (ms / 1,000 flows) | CV macro F1 re-tuned without host fingerprint |
 |---|---|---|---|---|---|
-| Decision Tree (recommended for deployment) | 0.99534 ± 0.00890 | 1 | 9 / 9 | 0.46 | 0.0051 |
-| Random Forest | 0.99549 ± 0.00892 | 1 | 9 / 9 | 2.74 | 0.0568 |
-| Gaussian Naive Bayes | 0.99952 ± 0.00029 | 3 | 9 / 9 | 0.96 | 0.1709 |
-| **k-Nearest Neighbours (selected by the pre-registered rule)** | 0.99998 ± 0.00004 | 1 | 9 / 9 | 37.64 | 0.1028 |
-| Logistic Regression | 0.98368 ± 0.01551 | 2 | 9 / 9 | 1.17 | 0.0080 |
-| Support Vector Machine | 0.99547 ± 0.00891 | 2 | 9 / 9 | 2.13 | 0.0079 |
-| Gradient Boosting | 0.99551 ± 0.00893 | 0 | 9 / 9 | 7.30 | 0.0163 |
-| Multi-layer Perceptron | 0.99534 ± 0.00884 | 3 | 9 / 9 | 0.84 | 0.0840 |
+| Decision Tree (recommended for deployment) | 0.99534 ± 0.00890 | 1 | 9 / 9 | 0.53 | 0.99025 |
+| Random Forest | 0.99549 ± 0.00892 | 1 | 9 / 9 | 2.76 | 0.99025 |
+| Gaussian Naive Bayes | 0.99952 ± 0.00029 | 3 | 9 / 9 | 1.03 | 0.99503 |
+| **k-Nearest Neighbours (selected by the pre-registered rule)** | 0.99998 ± 0.00004 | 1 | 9 / 9 | 33.18 | 0.97928 |
+| Logistic Regression | 0.98368 ± 0.01551 | 2 | 9 / 9 | 1.17 | 0.97571 |
+| Support Vector Machine | 0.99547 ± 0.00891 | 2 | 9 / 9 | 2.18 | 0.98761 |
+| Gradient Boosting | 0.99551 ± 0.00893 | 0 | 9 / 9 | 8.80 | 0.99036 |
+| Multi-layer Perceptron | 0.99534 ± 0.00884 | 3 | 9 / 9 | 0.80 | 0.98029 |
 
 Exact figures, with bootstrap confidence intervals, are in `reports/tables/5_7_final_comparison.csv`; timings vary
 between runs. The rule fixed before the test set was opened (highest CV macro F1, ties within one standard deviation
 broken by speed) selects k-Nearest Neighbours. The Decision Tree is recommended for deployment: it is 0.00464 macro F1 below the leader,
-about 82 times faster at inference, readable as rules, and it loses only 0.0051 macro F1 when the TCP values fixed by the attacking machines are withheld. In the ablations no model gains more than one standard deviation from the destination port, which stays excluded as a label proxy;
+about 63 times faster at inference, readable as rules, and it loses only 0.0051 macro F1 when the TCP values fixed by the attacking machines are withheld. In the ablations no model gains more than one standard deviation from the destination port, which stays excluded as a label proxy;
 SMOTE helped beyond one standard deviation for no model, class weights and Tomek links brought no
 consistent benefit, and L1 regularisation keeps 19 of 69 features for Logistic Regression at
 macro F1 0.9830 (L2: 0.9671).
@@ -135,6 +136,30 @@ without those TCP columns, it flags 0% of GoldenEye and 0% of Slowloris
 (`reports/tables/5_6_unseen_day_tree_without_fingerprint.csv`): its unseen-day alarms come from recognising the
 attacking machines.
 
+Four further checks show what these scores do and do not measure:
+
+- **Near-duplicate flows** (notebook 04, Step 6 e). In the scaled feature space of k-Nearest Neighbours
+  (69 features), 99.6% of SSH test flows lie within 0.001 of a training flow; the median
+  test-to-train distance (0.000066) is as small as the distance between training flows (median 0.000069), while DoS flows of the unseen
+  day lie about 5,883 times further away. With k = 1, the leader copies the label of an
+  almost identical training flow.
+- **What the FTP class is** (notebook 02). Every FTP flow has the same packet shape: one packet each way and no payload. The
+  dataset's corrected documentation (Liu et al., no date,
+  <https://intrusion-detection.distrinet-research.be/CNS2022/CSECICIDS2018.html>) reports that port 21 was closed, so
+  these are refused connections and no password was tried; the models recognise one packet pattern, not FTP password
+  guessing.
+- **Folds grouped by packet shape** (notebook 04, Step 6 f, `StratifiedGroupKFold`). Across the five random
+  folds a flow shape sits on both sides of a split 10,051 times; across grouped folds,
+  0 times. SSH recall stays
+  0.9976–0.9995 and false alarms at most 0.033% (Support Vector Machine);
+  92% of missed SSH flows carry no payload. The FTP shape is never recognised when its fold holds it out.
+- **Re-tuned without the host fingerprint** (notebook 04, Step 5 v). All eight searches were rerun without the
+  attacking hosts' TCP columns; k-Nearest Neighbours and Multi-layer Perceptron still lose 0.01 macro F1 or more, and the same pre-registered rule
+  again selects the Decision Tree (CV 0.99025 ± 0.01901). Scored once on the test set it reaches macro F1
+  0.9823 with 3 errors and FTP recall 1.00; on 15 February it
+  raises 0 false alarms and flags 0% of GoldenEye and
+  0% of Slowloris flows.
+
 ## Layout
 
 | Path | Content |
@@ -144,4 +169,4 @@ attacking machines.
 | `data/processed/` | Cleaned, de-duplicated 75,000-row sample (Parquet) and `manifest.json` (counts, seed, SHA-256) |
 | `reports/` | Figures (PNG, 300 dpi), tables (CSV) and `numbers.json`, the values the report quotes |
 | `requirements-colab.txt` | Pinned library versions for Google Colab |
-| `tests/` | Checks for data integrity, train/test leakage, models, course techniques, the unseen day, the predictor, the results table and the executed notebooks (98 tests) |
+| `tests/` | Checks for data integrity, train/test leakage, models, course techniques, the unseen day, the predictor, the results table and the executed notebooks (`uv run pytest -q`) |
