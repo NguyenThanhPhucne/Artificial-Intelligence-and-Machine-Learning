@@ -42,37 +42,37 @@ SURFACE = "#ffffff"
 
 # Diverging map for correlations: blue (negative) -> neutral grey (zero) -> red (positive).
 # A grey midpoint makes "no correlation" read as absence rather than as a third colour.
-CORRELATION_CMAP = LinearSegmentedColormap.from_list(
-    "corr", ["#104281", "#2a78d6", "#f0efec", "#e34948", "#8f1d1d"]
-)
+CORRELATION_CMAP = LinearSegmentedColormap.from_list("corr", ["#104281", "#2a78d6", "#f0efec", "#e34948", "#8f1d1d"])
 
 
 def apply_style() -> None:
     """Set a quiet, print-friendly matplotlib style: light grid, muted axes, readable fonts."""
-    mpl.rcParams.update({
-        "figure.facecolor": SURFACE,
-        "axes.facecolor": SURFACE,
-        "savefig.facecolor": SURFACE,
-        "font.size": 10,
-        "axes.titlesize": 11,
-        "axes.titleweight": "bold",
-        "axes.titlelocation": "left",
-        "axes.labelsize": 10,
-        "axes.labelcolor": INK_SECONDARY,
-        "axes.edgecolor": AXIS,
-        "axes.linewidth": 0.8,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": True,
-        "axes.axisbelow": True,
-        "grid.color": GRID,
-        "grid.linewidth": 0.6,
-        "xtick.color": INK_SECONDARY,
-        "ytick.color": INK_SECONDARY,
-        "text.color": INK,
-        "legend.frameon": False,
-        "figure.dpi": 110,
-    })
+    mpl.rcParams.update(
+        {
+            "figure.facecolor": SURFACE,
+            "axes.facecolor": SURFACE,
+            "savefig.facecolor": SURFACE,
+            "font.size": 10,
+            "axes.titlesize": 11,
+            "axes.titleweight": "bold",
+            "axes.titlelocation": "left",
+            "axes.labelsize": 10,
+            "axes.labelcolor": INK_SECONDARY,
+            "axes.edgecolor": AXIS,
+            "axes.linewidth": 0.8,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.grid": True,
+            "axes.axisbelow": True,
+            "grid.color": GRID,
+            "grid.linewidth": 0.6,
+            "xtick.color": INK_SECONDARY,
+            "ytick.color": INK_SECONDARY,
+            "text.color": INK,
+            "legend.frameon": False,
+            "figure.dpi": 110,
+        }
+    )
 
 
 def save_figure(fig: Figure, name: str, folder: Path = config.FIGURES_DIR) -> Path:
@@ -99,9 +99,8 @@ def plot_class_distribution(raw_counts: pd.Series, train_counts: pd.Series) -> F
         counts = counts.reindex(CLASS_ORDER)
         positions = np.arange(len(CLASS_ORDER))
         ax.barh(positions, counts, height=0.6, color=[CLASS_COLORS[c] for c in CLASS_ORDER])
-        for pos, value in zip(positions, counts):
-            ax.text(value * 1.25, pos, f"{value:,} ({value / counts.sum():.2%})",
-                    va="center", fontsize=9, color=INK)
+        for pos, value in zip(positions, counts, strict=True):
+            ax.text(value * 1.25, pos, f"{value:,} ({value / counts.sum():.2%})", va="center", fontsize=9, color=INK)
         ax.set_xscale("log")
         ax.set_xlim(10, counts.max() * 40)
         ax.set_yticks(positions, CLASS_ORDER)
@@ -131,8 +130,9 @@ def plot_correlation_heatmap(corr: pd.DataFrame, annotate_above: float = 0.9) ->
         for j in range(i + 1):
             r = values[i, j]
             if abs(r) >= annotate_above:
-                ax.text(j, i, f"{r:.2f}", ha="center", va="center", fontsize=6.5,
-                        color="#ffffff" if abs(r) > 0.75 else INK)
+                ax.text(
+                    j, i, f"{r:.2f}", ha="center", va="center", fontsize=6.5, color="#ffffff" if abs(r) > 0.75 else INK
+                )
     ax.set_xticks(range(len(cols)), cols, rotation=60, ha="right", fontsize=8)
     ax.set_yticks(range(len(rows)), rows, fontsize=8)
     ax.grid(False)
@@ -157,16 +157,22 @@ def plot_class_boxplots(X: pd.DataFrame, y: pd.Series, columns: list[str], ncols
     fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3.3 * nrows), squeeze=False)
     sizes = y.value_counts()
     tick_labels = [f"{c.split('-')[0]}\n(n={sizes.get(c, 0):,})" for c in CLASS_ORDER]
-    for ax, column in zip(axes.flat, columns):
+    # The grid can hold more axes than panels; the spare axes are hidden, so zip stops early on purpose.
+    for ax, column in zip(axes.flat, columns, strict=False):
         groups = [X.loc[y == c, column].to_numpy() for c in CLASS_ORDER]
         boxes = ax.boxplot(
-            groups, widths=0.5, patch_artist=True, showfliers=True,
+            groups,
+            widths=0.5,
+            patch_artist=True,
+            showfliers=True,
             medianprops={"linewidth": 2.2},
             flierprops={"marker": "o", "markersize": 2, "markeredgewidth": 0, "alpha": 0.35},
         )
         # The attack classes are so uniform that their boxes often collapse to a single line, so I
         # draw the median in the class colour: the class stays identifiable even with zero IQR.
-        for patch, median, flier, cls in zip(boxes["boxes"], boxes["medians"], boxes["fliers"], CLASS_ORDER):
+        for patch, median, flier, cls in zip(
+            boxes["boxes"], boxes["medians"], boxes["fliers"], CLASS_ORDER, strict=True
+        ):
             patch.set_facecolor(CLASS_COLORS[cls] + "59")  # ~35% opacity fill
             patch.set_edgecolor(CLASS_COLORS[cls])
             median.set_color(CLASS_COLORS[cls])
@@ -179,7 +185,7 @@ def plot_class_boxplots(X: pd.DataFrame, y: pd.Series, columns: list[str], ncols
         ax.grid(axis="x", visible=False)
     for ax in axes[:, 0]:
         ax.set_ylabel("Value (symlog scale)")
-    for ax in list(axes.flat)[len(columns):]:
+    for ax in list(axes.flat)[len(columns) :]:
         ax.set_visible(False)
     fig.tight_layout()
     return fig
@@ -193,11 +199,10 @@ def plot_cv_comparison(scores: pd.DataFrame, metrics: dict[str, str]) -> Figure:
     +/- 1 standard-deviation bars on a zoomed axis. Exact values are in the accompanying table, so I
     do not print them on the chart, where they would collide.
     """
-    fig, axes = plt.subplots(1, len(metrics), figsize=(4.2 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3),
-                             sharey=True)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(4.2 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3), sharey=True)
     axes = np.atleast_1d(axes)
     positions = {model: i for i, model in enumerate(MODEL_ORDER)}
-    for ax, (metric, label) in zip(axes, metrics.items()):
+    for ax, (metric, label) in zip(axes, metrics.items(), strict=True):
         subset = scores[scores["metric"] == metric]
         lows = (subset["mean"] - subset["std"]).min()
         # A score cannot exceed 1, so I clip the upper error bar there instead of drawing past it.
@@ -206,8 +211,17 @@ def plot_cv_comparison(scores: pd.DataFrame, metrics: dict[str, str]) -> Figure:
             rows = subset[subset["stage"] == stage]
             ys = rows["model"].map(positions) + offset
             upper = np.minimum(rows["std"], 1.0 - rows["mean"])
-            ax.errorbar(rows["mean"], ys, xerr=[rows["std"], upper], fmt=marker, color=ink,
-                        markersize=6, capsize=3, linewidth=1.2, label=stage)
+            ax.errorbar(
+                rows["mean"],
+                ys,
+                xerr=[rows["std"], upper],
+                fmt=marker,
+                color=ink,
+                markersize=6,
+                capsize=3,
+                linewidth=1.2,
+                label=stage,
+            )
         span = max(highs - lows, 1e-4)
         ax.set_xlim(lows - span * 0.1, highs + span * 0.1)
         # Without this, matplotlib writes ticks as offsets from 1 ("-0.0002 +1"), which is unreadable.
@@ -237,10 +251,10 @@ def plot_timing(timing: pd.DataFrame) -> Figure:
     ]
     timing = timing.set_index("model").reindex(MODEL_ORDER)
     positions = np.arange(len(MODEL_ORDER))
-    for ax, (column, title, fmt) in zip(axes, panels):
+    for ax, (column, title, fmt) in zip(axes, panels, strict=True):
         values = timing[column]
         ax.barh(positions, values, height=0.55, color=INK_SECONDARY)
-        for pos, value in zip(positions, values):
+        for pos, value in zip(positions, values, strict=True):
             ax.text(value + values.max() * 0.02, pos, fmt.format(value), va="center", fontsize=9)
         ax.set_xlim(0, values.max() * 1.25)
         ax.set_title(title)
@@ -271,12 +285,13 @@ def plot_confusion_matrices(results: dict[str, tuple[np.ndarray, np.ndarray]], t
     ncols = min(4, len(results))
     nrows = int(np.ceil(len(results) / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(4.3 * ncols, 4.0 * nrows), squeeze=False)
-    for ax in axes.flat[len(results):]:
+    for ax in axes.flat[len(results) :]:
         ax.set_visible(False)
     axes = axes.flat
     short = [c.split("-")[0] for c in CLASS_ORDER]
     cmap = LinearSegmentedColormap.from_list("recall", ["#ffffff", "#cde2fb", "#2a78d6", "#104281"])
-    for ax, (name, (y_true, y_pred)) in zip(axes, results.items()):
+    # The grid can hold more axes than panels; the spare axes are hidden, so zip stops early on purpose.
+    for ax, (name, (y_true, y_pred)) in zip(axes, results.items(), strict=False):
         counts = confusion_matrix(y_true, y_pred, labels=CLASS_ORDER)
         shares = counts / counts.sum(axis=1, keepdims=True)
         ax.imshow(shares, cmap=cmap, vmin=0, vmax=1)
@@ -284,8 +299,9 @@ def plot_confusion_matrices(results: dict[str, tuple[np.ndarray, np.ndarray]], t
             for j in range(len(CLASS_ORDER)):
                 # Two decimals, because 5 of 50,857 flows is 0.01%, which one decimal would print as 0.0%.
                 label = "0" if counts[i, j] == 0 else f"{counts[i, j]:,}\n({_share_label(shares[i, j])})"
-                ax.text(j, i, label, ha="center", va="center",
-                        fontsize=8, color="#ffffff" if shares[i, j] > 0.6 else INK)
+                ax.text(
+                    j, i, label, ha="center", va="center", fontsize=8, color="#ffffff" if shares[i, j] > 0.6 else INK
+                )
         ax.set_xticks(range(len(short)), short)
         ax.set_yticks(range(len(short)), short)
         ax.set_xlabel("Predicted class")
@@ -307,21 +323,35 @@ def plot_cv_vs_test(table: pd.DataFrame, metrics: dict[str, str]) -> Figure:
     one axis lets the reader see whether the test score falls inside the range the cross-validation
     predicted, which is the evidence that the model generalises rather than memorises.
     """
-    fig, axes = plt.subplots(1, len(metrics), figsize=(5 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3),
-                             sharey=True)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(5 * len(metrics), 0.42 * len(MODEL_ORDER) + 1.3), sharey=True)
     axes = np.atleast_1d(axes)
     positions = {model: i for i, model in enumerate(MODEL_ORDER)}
-    for ax, (metric, label) in zip(axes, metrics.items()):
+    for ax, (metric, label) in zip(axes, metrics.items(), strict=True):
         rows = table[table["metric"] == metric]
         ys = rows["model"].map(positions)
         cv_upper = np.minimum(rows["cv_std"], 1.0 - rows["cv_mean"])
-        ax.errorbar(rows["cv_mean"], ys - 0.15, xerr=[rows["cv_std"], cv_upper], fmt="o",
-                    color=BASELINE_INK, markersize=6, capsize=3, linewidth=1.2,
-                    label="Cross-validation (mean ± 1 SD)")
-        ax.errorbar(rows["test"], ys + 0.15,
-                    xerr=[rows["test"] - rows["test_low"], rows["test_high"] - rows["test"]],
-                    fmt="D", color=TUNED_INK, markersize=6, capsize=3, linewidth=1.2,
-                    label="Test set (95% bootstrap CI)")
+        ax.errorbar(
+            rows["cv_mean"],
+            ys - 0.15,
+            xerr=[rows["cv_std"], cv_upper],
+            fmt="o",
+            color=BASELINE_INK,
+            markersize=6,
+            capsize=3,
+            linewidth=1.2,
+            label="Cross-validation (mean ± 1 SD)",
+        )
+        ax.errorbar(
+            rows["test"],
+            ys + 0.15,
+            xerr=[rows["test"] - rows["test_low"], rows["test_high"] - rows["test"]],
+            fmt="D",
+            color=TUNED_INK,
+            markersize=6,
+            capsize=3,
+            linewidth=1.2,
+            label="Test set (95% bootstrap CI)",
+        )
         low = min((rows["cv_mean"] - rows["cv_std"]).min(), rows["test_low"].min())
         span = max(1.0 - low, 1e-4)
         ax.set_xlim(low - span * 0.1, 1.0 + span * 0.05)
@@ -348,10 +378,12 @@ def plot_ablation(table: pd.DataFrame, variant_labels: dict[str, str]) -> Figure
     ncols = 4
     nrows = int(np.ceil(len(MODEL_ORDER) / ncols))
     variants = list(variant_labels)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(3.6 * ncols, (0.3 * len(variants) + 1.0) * nrows),
-                             sharey=True, squeeze=False)
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(3.6 * ncols, (0.3 * len(variants) + 1.0) * nrows), sharey=True, squeeze=False
+    )
     low = (table["f1_macro_mean"] - table["f1_macro_std"]).min()
-    for ax, model in zip(axes.flat, MODEL_ORDER):
+    # The grid can hold more axes than panels; the spare axes are hidden, so zip stops early on purpose.
+    for ax, model in zip(axes.flat, MODEL_ORDER, strict=False):
         rows = table[table["model"] == model].set_index("variant").reindex(variants)
         main = rows.loc["main", "f1_macro_mean"]
         ax.axvline(main, color=GRID, linewidth=1.5, zorder=0)
@@ -361,8 +393,16 @@ def plot_ablation(table: pd.DataFrame, variant_labels: dict[str, str]) -> Figure
                 ax.text(low, i, "  n/a", va="center", fontsize=8, color=INK_MUTED)
                 continue
             ink = TUNED_INK if variant == "main" else BASELINE_INK
-            ax.errorbar(mean, i, xerr=[[std], [min(std, 1.0 - mean)]], fmt="D" if variant == "main" else "o",
-                        color=ink, markersize=6, capsize=3, linewidth=1.2)
+            ax.errorbar(
+                mean,
+                i,
+                xerr=[[std], [min(std, 1.0 - mean)]],
+                fmt="D" if variant == "main" else "o",
+                color=ink,
+                markersize=6,
+                capsize=3,
+                linewidth=1.2,
+            )
         ax.set_xlim(low - (1 - low) * 0.1, 1.0 + (1 - low) * 0.05)
         ax.set_title(model, fontsize=10)
         ax.set_xlabel("CV macro F1 (mean ± 1 SD)", fontsize=8)
@@ -380,7 +420,7 @@ def plot_importance(importance: pd.Series, title: str, xlabel: str) -> Figure:
     fig, ax = plt.subplots(figsize=(7, 0.32 * len(importance) + 1))
     positions = np.arange(len(importance))
     ax.barh(positions, importance.to_numpy(), height=0.6, color=INK_SECONDARY)
-    for pos, value in zip(positions, importance.to_numpy()):
+    for pos, value in zip(positions, importance.to_numpy(), strict=True):
         ax.text(value + importance.max() * 0.01, pos, f"{value:.3f}", va="center", fontsize=8)
     ax.set_yticks(positions, importance.index, fontsize=8.5)
     ax.set_xlim(0, importance.max() * 1.15)
@@ -393,6 +433,7 @@ def plot_importance(importance: pd.Series, title: str, xlabel: str) -> Figure:
 
 # --- Figures for techniques taught in the module (EDA, scaling, comparison, learning curves) -------
 
+
 def plot_histograms(X: pd.DataFrame, columns: list[str], stats: pd.DataFrame, ncols: int = 3) -> Figure:
     """Univariate histograms of the training set, one panel per feature, skewness in the title.
 
@@ -402,7 +443,8 @@ def plot_histograms(X: pd.DataFrame, columns: list[str], stats: pd.DataFrame, nc
     """
     nrows = int(np.ceil(len(columns) / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 2.9 * nrows), squeeze=False)
-    for ax, column in zip(axes.flat, columns):
+    # The grid can hold more axes than panels; the spare axes are hidden, so zip stops early on purpose.
+    for ax, column in zip(axes.flat, columns, strict=False):
         values = X[column].to_numpy(dtype=float)
         transformed = np.sign(values) * np.log1p(np.abs(values))
         edges = np.linspace(transformed.min(), transformed.max(), 41)
@@ -410,20 +452,23 @@ def plot_histograms(X: pd.DataFrame, columns: list[str], stats: pd.DataFrame, nc
         ax.hist(values, bins=np.unique(bins), color=INK_SECONDARY, alpha=0.85)
         ax.set_xscale("symlog", linthresh=1)
         ax.set_yscale("log")
-        ax.set_title(f"{column}\nskew {stats.loc[column, 'skewness']:.1f}, kurtosis {stats.loc[column, 'kurtosis']:.0f}",
-                     fontsize=9.5)
+        ax.set_title(
+            f"{column}\nskew {stats.loc[column, 'skewness']:.1f}, kurtosis {stats.loc[column, 'kurtosis']:.0f}",
+            fontsize=9.5,
+        )
         ax.set_xlabel("Value (symlog scale)", fontsize=8)
         ax.grid(axis="x", visible=False)
     for ax in axes[:, 0]:
         ax.set_ylabel("Flows (log scale)")
-    for ax in list(axes.flat)[len(columns):]:
+    for ax in list(axes.flat)[len(columns) :]:
         ax.set_visible(False)
     fig.tight_layout()
     return fig
 
 
-def plot_scatter(X: pd.DataFrame, y: pd.Series, x_col: str, y_col: str, max_per_class: int = 3_000,
-                 seed: int = config.SEED) -> Figure:
+def plot_scatter(
+    X: pd.DataFrame, y: pd.Series, x_col: str, y_col: str, max_per_class: int = 3_000, seed: int = config.SEED
+) -> Figure:
     """Bivariate scatter plot of two features coloured by class, on symlog axes.
 
     Benign has ~51,000 flows, so I draw at most `max_per_class` random flows per class (all 37 FTP
@@ -438,9 +483,15 @@ def plot_scatter(X: pd.DataFrame, y: pd.Series, x_col: str, y_col: str, max_per_
         rows = np.flatnonzero(y.to_numpy() == cls)
         if len(rows) > max_per_class:
             rows = rng.choice(rows, max_per_class, replace=False)
-        ax.scatter(X[x_col].iloc[rows], X[y_col].iloc[rows], s=10 if cls == "Benign" else 22,
-                   alpha=0.35 if cls == "Benign" else 0.8, color=CLASS_COLORS[cls], edgecolors="none",
-                   label=f"{cls} (n={(y == cls).sum():,}; {distinct[cls]:,} distinct points)")
+        ax.scatter(
+            X[x_col].iloc[rows],
+            X[y_col].iloc[rows],
+            s=10 if cls == "Benign" else 22,
+            alpha=0.35 if cls == "Benign" else 0.8,
+            color=CLASS_COLORS[cls],
+            edgecolors="none",
+            label=f"{cls} (n={(y == cls).sum():,}; {distinct[cls]:,} distinct points)",
+        )
     ax.set_xscale("symlog", linthresh=1)
     ax.set_yscale("symlog", linthresh=1)
     ax.set_xlabel(f"{x_col} (symlog scale)")
@@ -460,14 +511,16 @@ def plot_scaling_comparison(raw: pd.Series, standard: np.ndarray, minmax: np.nda
     tiny part of [0, 1] when one extreme value exists.
     """
     fig, axes = plt.subplots(1, 3, figsize=(11, 2.8))
-    panels = [(raw.to_numpy(), "Raw values"), (standard, "StandardScaler (mean 0, SD 1)"),
-              (minmax, "MinMaxScaler (range 0 to 1)")]
-    for ax, (values, title) in zip(axes, panels):
+    panels = [
+        (raw.to_numpy(), "Raw values"),
+        (standard, "StandardScaler (mean 0, SD 1)"),
+        (minmax, "MinMaxScaler (range 0 to 1)"),
+    ]
+    for ax, (values, title) in zip(axes, panels, strict=True):
         ax.hist(values, bins=60, color=INK_SECONDARY)
         ax.set_yscale("log")
         ax.set_title(title, fontsize=10)
-        ax.set_xlabel(f"min {values.min():,.3g}, median {np.median(values):,.3g}, max {values.max():,.3g}",
-                      fontsize=8)
+        ax.set_xlabel(f"min {values.min():,.3g}, median {np.median(values):,.3g}, max {values.max():,.3g}", fontsize=8)
         ax.grid(axis="x", visible=False)
     axes[0].set_ylabel("Flows (log scale)")
     fig.suptitle(raw.name, x=0.01, ha="left", fontsize=11, fontweight="bold")
@@ -482,15 +535,14 @@ def plot_metric_bars(table: pd.DataFrame, metrics: dict[str, str]) -> Figure:
     starts just below the lowest score, which I state in the axis label, and every bar carries its
     exact value so the chart cannot exaggerate a difference.
     """
-    fig, axes = plt.subplots(1, len(metrics), figsize=(4.0 * len(metrics), 0.36 * len(MODEL_ORDER) + 1.4),
-                             sharey=True)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(4.0 * len(metrics), 0.36 * len(MODEL_ORDER) + 1.4), sharey=True)
     axes = np.atleast_1d(axes)
     positions = np.arange(len(MODEL_ORDER))
-    for ax, (metric, label) in zip(axes, metrics.items()):
+    for ax, (metric, label) in zip(axes, metrics.items(), strict=True):
         values = table.reindex(MODEL_ORDER)[metric]
         start = np.floor((values.min() - (1 - values.min()) * 0.3) * 1000) / 1000
         ax.barh(positions, values - start, left=start, height=0.6, color=INK_SECONDARY)
-        for pos, value in zip(positions, values):
+        for pos, value in zip(positions, values, strict=True):
             ax.text(value, pos, f" {value:.4f}", va="center", fontsize=8)
         ax.set_xlim(start, 1 + (1 - start) * 0.35)
         # Three ticks from the axis start to 1.0: a score cannot exceed 1, so no tick is drawn beyond it.
@@ -515,21 +567,36 @@ def plot_learning_curves(curves: dict[str, pd.DataFrame], ncols: int = 4) -> Fig
     nrows = int(np.ceil(len(curves) / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(3.4 * ncols, 2.7 * nrows), sharey=True, squeeze=False)
     low = min(min((c["valid_mean"] - c["valid_std"]).min(), c["train_mean"].min()) for c in curves.values())
-    for ax, (name, curve) in zip(axes.flat, curves.items()):
-        for column, ink, marker, label in (("train", BASELINE_INK, "o", "Training folds"),
-                                           ("valid", TUNED_INK, "D", "Validation folds")):
-            ax.plot(curve["train_flows"], curve[f"{column}_mean"], marker=marker, color=ink,
-                    markersize=4, linewidth=1.2, label=label)
-            ax.fill_between(curve["train_flows"], curve[f"{column}_mean"] - curve[f"{column}_std"],
-                            np.minimum(curve[f"{column}_mean"] + curve[f"{column}_std"], 1.0),
-                            color=ink, alpha=0.12, linewidth=0)
+    # The grid can hold more axes than panels; the spare axes are hidden, so zip stops early on purpose.
+    for ax, (name, curve) in zip(axes.flat, curves.items(), strict=False):
+        for column, ink, marker, label in (
+            ("train", BASELINE_INK, "o", "Training folds"),
+            ("valid", TUNED_INK, "D", "Validation folds"),
+        ):
+            ax.plot(
+                curve["train_flows"],
+                curve[f"{column}_mean"],
+                marker=marker,
+                color=ink,
+                markersize=4,
+                linewidth=1.2,
+                label=label,
+            )
+            ax.fill_between(
+                curve["train_flows"],
+                curve[f"{column}_mean"] - curve[f"{column}_std"],
+                np.minimum(curve[f"{column}_mean"] + curve[f"{column}_std"], 1.0),
+                color=ink,
+                alpha=0.12,
+                linewidth=0,
+            )
         ax.set_title(name, fontsize=10)
         ax.set_ylim(max(low - (1 - low) * 0.1, 0), 1.0 + (1 - low) * 0.05)
         ax.set_xlabel("Training flows", fontsize=8)
         ax.tick_params(labelsize=8)
     for ax in axes[:, 0]:
         ax.set_ylabel("Macro F1")
-    for ax in list(axes.flat)[len(curves):]:
+    for ax in list(axes.flat)[len(curves) :]:
         ax.set_visible(False)
     axes[0, 0].legend(loc="lower right", fontsize=7)
     fig.tight_layout()
@@ -547,8 +614,18 @@ def plot_decision_tree(pipeline, max_depth: int = 3) -> Figure:
     model = pipeline.named_steps["model"]
     names = list(pipeline.named_steps["preprocess"].get_feature_names_out())
     fig, ax = plt.subplots(figsize=(13, 5.5))
-    boxes = plot_tree(model, max_depth=max_depth, feature_names=names, class_names=list(model.classes_),
-                      filled=False, impurity=False, proportion=False, rounded=True, fontsize=7, ax=ax)
+    boxes = plot_tree(
+        model,
+        max_depth=max_depth,
+        feature_names=names,
+        class_names=list(model.classes_),
+        filled=False,
+        impurity=False,
+        proportion=False,
+        rounded=True,
+        fontsize=7,
+        ax=ax,
+    )
     # plot_tree's own palette would give Benign, FTP and SSH different colours from every other figure,
     # so I recolour each node with its majority class colour, paler when the node is less pure.
     for box in boxes:
@@ -562,8 +639,10 @@ def plot_decision_tree(pipeline, max_depth: int = 3) -> Figure:
         weight = 0.25 + 0.5 * purity
         rgb = np.array(mpl.colors.to_rgb(CLASS_COLORS.get(cls, SURFACE)))
         box.get_bbox_patch().set_facecolor(tuple(1 - weight * (1 - rgb)))
-    ax.set_title(f"Decision Tree (depth {model.get_depth()}, {model.get_n_leaves()} leaves): first {max_depth} levels; "
-                 f"thresholds in standardised units; samples include the synthetic SMOTE flows")
+    ax.set_title(
+        f"Decision Tree (depth {model.get_depth()}, {model.get_n_leaves()} leaves): first {max_depth} levels; "
+        f"thresholds in standardised units; samples include the synthetic SMOTE flows"
+    )
     fig.tight_layout()
     return fig
 
@@ -581,10 +660,24 @@ def plot_pearson_vs_spearman(pairs: pd.DataFrame, threshold: float = 0.7) -> Fig
     """
     fig, ax = plt.subplots(figsize=(6.4, 5.6))
     spearman = pairs["spearman"].abs()
-    ax.scatter(pairs["pearson_raw"].abs(), spearman, s=6, alpha=0.35, color=INK_MUTED, edgecolors="none",
-               label="Pearson on raw values")
-    ax.scatter(pairs["pearson_symlog"].abs(), spearman, s=6, alpha=0.35, color=INK, edgecolors="none",
-               label="Pearson after symlog")
+    ax.scatter(
+        pairs["pearson_raw"].abs(),
+        spearman,
+        s=6,
+        alpha=0.35,
+        color=INK_MUTED,
+        edgecolors="none",
+        label="Pearson on raw values",
+    )
+    ax.scatter(
+        pairs["pearson_symlog"].abs(),
+        spearman,
+        s=6,
+        alpha=0.35,
+        color=INK,
+        edgecolors="none",
+        label="Pearson after symlog",
+    )
     ax.plot([0, 1], [0, 1], color=AXIS, linewidth=1, linestyle="--", label="y = x (equal measures)")
     ax.axhline(threshold, color=GRID, linewidth=1)
     ax.axvline(threshold, color=GRID, linewidth=1)
@@ -623,12 +716,16 @@ def plot_mosaic(counts: pd.DataFrame) -> Figure:
             if count == 0:
                 continue
             height = count / totals.loc[protocol]
-            ax.add_patch(mpl.patches.Rectangle((left, bottom), width, height, facecolor=CLASS_COLORS[cls],
-                                               edgecolor=SURFACE, linewidth=1))
+            ax.add_patch(
+                mpl.patches.Rectangle(
+                    (left, bottom), width, height, facecolor=CLASS_COLORS[cls], edgecolor=SURFACE, linewidth=1
+                )
+            )
             text = f"{cls}\n{int(count):,} ({height:.1%})"
             if height >= 0.12 and width >= 0.12:
-                ax.text(left + width / 2, bottom + height / 2, text, ha="center", va="center", fontsize=7,
-                        color=SURFACE)
+                ax.text(
+                    left + width / 2, bottom + height / 2, text, ha="center", va="center", fontsize=7, color=SURFACE
+                )
             elif width >= 0.12:
                 thin.append(f"{cls}: {int(count):,} ({height:.2%})")
             bottom += height
@@ -680,12 +777,22 @@ def plot_pair_matrix(X: pd.DataFrame, y: pd.Series, columns: list[str]) -> Figur
                     # Weights of 1/n per class make bar heights comparable across classes of very
                     # different sizes (37 FTP versus ~1,700 benign flows).
                     part = column[mask]
-                    ax.hist(part, bins=bins, color=CLASS_COLORS[cls], alpha=0.6,
-                            weights=np.full(len(part), 1 / max(len(part), 1)))
+                    ax.hist(
+                        part,
+                        bins=bins,
+                        color=CLASS_COLORS[cls],
+                        alpha=0.6,
+                        weights=np.full(len(part), 1 / max(len(part), 1)),
+                    )
                 else:
-                    ax.scatter(values[col_col].to_numpy()[mask], values[row_col].to_numpy()[mask],
-                               s=4 if cls == "Benign" else 10, alpha=0.3 if cls == "Benign" else 0.8,
-                               color=CLASS_COLORS[cls], edgecolors="none")
+                    ax.scatter(
+                        values[col_col].to_numpy()[mask],
+                        values[row_col].to_numpy()[mask],
+                        s=4 if cls == "Benign" else 10,
+                        alpha=0.3 if cls == "Benign" else 0.8,
+                        color=CLASS_COLORS[cls],
+                        edgecolors="none",
+                    )
             ax.tick_params(labelsize=6)
             if i == n - 1:
                 ax.set_xlabel(f"symlog({col_col})", fontsize=7)
@@ -694,8 +801,9 @@ def plot_pair_matrix(X: pd.DataFrame, y: pd.Series, columns: list[str]) -> Figur
     counts = y.value_counts()
     handles = [mpl.patches.Patch(color=CLASS_COLORS[c], label=f"{c} (n={counts.get(c, 0):,})") for c in CLASS_ORDER]
     fig.legend(handles=handles, loc="upper center", ncol=3, fontsize=8, frameon=False, bbox_to_anchor=(0.5, 1.0))
-    fig.suptitle(f"Pair plot of {n} high-information features ({len(y):,}-flow training subsample)", y=1.03,
-                 fontsize=10)
+    fig.suptitle(
+        f"Pair plot of {n} high-information features ({len(y):,}-flow training subsample)", y=1.03, fontsize=10
+    )
     fig.tight_layout()
     return fig
 
@@ -707,11 +815,11 @@ def plot_importance_pair(left: pd.Series, right: pd.Series, titles: tuple[str, s
     splits on a few columns, whereas a forest spreads importance over many correlated columns.
     """
     fig, axes = plt.subplots(1, 2, figsize=(11, 0.34 * top + 1.4))
-    for ax, series, title in zip(axes, (left, right), titles):
+    for ax, series, title in zip(axes, (left, right), titles, strict=True):
         chosen = series.nlargest(top).sort_values()
         positions = np.arange(len(chosen))
         ax.barh(positions, chosen.to_numpy(), height=0.6, color=INK_SECONDARY)
-        for pos, value in zip(positions, chosen.to_numpy()):
+        for pos, value in zip(positions, chosen.to_numpy(), strict=True):
             ax.text(value + chosen.max() * 0.01, pos, f"{value:.3f}", va="center", fontsize=7.5)
         ax.set_yticks(positions, chosen.index, fontsize=8)
         ax.set_xlim(0, chosen.max() * 1.18)
@@ -740,7 +848,7 @@ def plot_unseen_day(table: pd.DataFrame) -> Figure:
     # Rates here are tiny (a few flows in 20,000), so offsets and limits scale with the data, not with 100%.
     span = max(float(table["benign ci_high"].max()), 1e-4)
     # Labels sit just beyond each interval so they never overlap the error bars.
-    for pos, value, high in zip(positions, rate, table["benign ci_high"].to_numpy()):
+    for pos, value, high in zip(positions, rate, table["benign ci_high"].to_numpy(), strict=True):
         left.text(high + span * 0.02, pos, f"{value:.3%}", va="center", fontsize=7.5)
     left.set_xlim(0, span * 1.25)
     left.set_yticks(positions, models_, fontsize=8)
@@ -753,9 +861,14 @@ def plot_unseen_day(table: pd.DataFrame) -> Figure:
     for k, column in enumerate(attacks):
         offset = (k - (len(attacks) - 1) / 2) * height
         values = table[column].to_numpy()
-        right.barh(positions + offset, values, height=height * 0.9, color=inks[k % len(inks)],
-                   label=column.removesuffix(" flagged").replace("DoS attacks-", "DoS "))
-        for pos, value in zip(positions + offset, values):
+        right.barh(
+            positions + offset,
+            values,
+            height=height * 0.9,
+            color=inks[k % len(inks)],
+            label=column.removesuffix(" flagged").replace("DoS attacks-", "DoS "),
+        )
+        for pos, value in zip(positions + offset, values, strict=True):
             right.text(value + 0.01, pos, f"{value:.0%}", va="center", fontsize=7)
     right.set_xlim(0, 1.12)
     right.xaxis.set_major_formatter(mpl.ticker.PercentFormatter(1.0))
@@ -765,4 +878,95 @@ def plot_unseen_day(table: pd.DataFrame) -> Figure:
     for ax in (left, right):
         ax.grid(axis="y", visible=False)
     fig.tight_layout()
+    return fig
+
+
+def plot_neighbour_distance(curves: dict[str, np.ndarray], threshold: float = 1e-3) -> Figure:
+    """Cumulative share of flows whose nearest training flow lies within a distance (k-NN space, log axis).
+
+    One line per set. The train-to-train line is the yardstick: a set that follows it is as close to the
+    training flows as they are to each other. Lines named "15 Feb ..." come from a day the models never saw.
+    A distance of exactly 0 cannot sit on a log axis, so I draw it at the left edge (floor 1e-7).
+    """
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    floor = 1e-7
+    for label, values in curves.items():
+        values = np.sort(np.maximum(np.asarray(values, dtype=float), floor))
+        share = np.arange(1, len(values) + 1) / len(values)
+        class_name = next((c for c in CLASS_ORDER if c in label), None)
+        color = CLASS_COLORS[class_name] if class_name else (INK if "train" in label else INK_MUTED)
+        style = "--" if "train ↔ train" in label else ":" if label.startswith("15 Feb") else "-"
+        ax.step(
+            values,
+            share,
+            where="post",
+            color=color,
+            linestyle=style,
+            linewidth=1.6,
+            label=f"{label} (n = {len(values):,})",
+        )
+    ax.axvline(threshold, color=AXIS, linewidth=1)
+    ax.text(threshold * 1.15, 0.03, f"{threshold:g}", color=INK_SECONDARY, fontsize=8)
+    ax.set_xscale("log")
+    ax.set_ylim(0, 1.02)
+    ax.yaxis.set_major_formatter(mpl.ticker.PercentFormatter(1.0))
+    ax.set_xlabel("Distance to the nearest training flow (k-NN feature space, log scale)")
+    ax.set_ylabel("Share of flows within that distance")
+    ax.set_title("How close flows lie to the training set")
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
+    fig.tight_layout()
+    return fig
+
+
+def plot_grouped_cv(summary: pd.DataFrame) -> Figure:
+    """SSH recall and benign false-alarm rate per model, ordinary stratified folds against folds grouped by shape.
+
+    `summary` has one row per (splitter, model) with *_mean and *_std columns. Error bars are one standard deviation
+    over the five folds, the margin my selection rule treats as noise.
+    """
+    order = [m for m in MODEL_ORDER if m in set(summary["model"])]
+    splitters = [("stratified", "StratifiedKFold", BASELINE_INK), ("grouped", "Grouped by flow shape", TUNED_INK)]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 0.42 * len(order) + 1.8), sharey=True)
+    positions = np.arange(len(order))
+    panels = [
+        ("ssh_recall", "SSH recall", "SSH-Bruteforce recall"),
+        ("false_alarm", "Benign flows flagged as an attack", "Benign false-alarm rate"),
+    ]
+    for ax, (key, xlabel, title) in zip(axes, panels, strict=True):
+        means, stds = summary[f"{key}_mean"], summary[f"{key}_std"]
+        # Recall sits just below 1 for every model, so I zoom to the range the bars actually use; false alarms
+        # cannot be negative, so that axis starts at 0 even where an error bar would reach below it.
+        low = max(0.0, float((means - stds).min()) - 0.002) if key == "ssh_recall" else 0.0
+        high = 1.0 if key == "ssh_recall" else float((means + stds).max())
+        span = high - low
+        for k, (name, label, ink) in enumerate(splitters):
+            rows = summary[summary["splitter"] == name].set_index("model").reindex(order)
+            offset = (k - 0.5) * 0.38
+            mean, sd = rows[f"{key}_mean"].to_numpy(), rows[f"{key}_std"].to_numpy()
+            # A rate lies in [0, 1], so I clip each error bar there instead of drawing impossible values.
+            err = np.vstack([np.minimum(sd, mean), np.minimum(sd, 1 - mean)])
+            ax.barh(
+                positions + offset,
+                mean - low,
+                left=low,
+                height=0.36,
+                color=ink,
+                label=label,
+                xerr=err,
+                error_kw={"ecolor": INK_MUTED, "capsize": 2, "linewidth": 0.8},
+            )
+            for pos, value, upper in zip(positions + offset, mean, mean + err[1], strict=True):
+                text = f"{value:.3%}" if key == "false_alarm" else f"{value:.4f}"
+                # Recall labels form a column right of 1.0; false-alarm labels sit just past each error bar.
+                ax.text((high if key == "ssh_recall" else upper) + span * 0.015, pos, text, va="center", fontsize=7)
+        ax.set_xlim(low, high + span * 0.22)
+        ax.set_xlabel(xlabel)
+        ax.set_title(title)
+        if key == "false_alarm":
+            ax.xaxis.set_major_formatter(mpl.ticker.PercentFormatter(1.0, decimals=2))
+    axes[0].set_yticks(positions, order, fontsize=8)
+    axes[0].invert_yaxis()
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=8, frameon=False)
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
     return fig

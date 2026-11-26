@@ -22,14 +22,10 @@ import pandas as pd
 from imblearn.over_sampling import SMOTE
 from scipy.stats import loguniform, randint
 from sklearn.base import BaseEstimator, clone
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import make_scorer, recall_score
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import (
     GridSearchCV,
     RandomizedSearchCV,
@@ -37,8 +33,12 @@ from sklearn.model_selection import (
     cross_val_predict,
     cross_validate,
 )
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 
 from . import config
 from .features import build_pipeline, symlog_transformer
@@ -76,9 +76,7 @@ def scorers() -> dict[str, object]:
         "f1_macro": "f1_macro",
         "recall_macro": "recall_macro",
         "precision_macro": "precision_macro",
-        "recall_ftp": make_scorer(
-            recall_score, labels=[MINORITY_CLASS], average="macro", zero_division=0
-        ),
+        "recall_ftp": make_scorer(recall_score, labels=[MINORITY_CLASS], average="macro", zero_division=0),
     }
 
 
@@ -225,9 +223,7 @@ def search_spaces() -> dict[str, dict[str, object]]:
     }
 
 
-def baseline_cv(
-    name: str, X: pd.DataFrame, y: pd.Series, seed: int = config.SEED
-) -> pd.DataFrame:
+def baseline_cv(name: str, X: pd.DataFrame, y: pd.Series, seed: int = config.SEED) -> pd.DataFrame:
     """Cross-validate the default model with my preprocessing but without SMOTE.
 
     This is the reference point that tuning and resampling must beat; it uses the same folds and
@@ -237,8 +233,13 @@ def baseline_cv(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ConvergenceWarning)
         result = cross_validate(
-            pipeline, X, y, cv=cv_splitter(seed), scoring=scorers(),
-            return_train_score=True, n_jobs=-1,
+            pipeline,
+            X,
+            y,
+            cv=cv_splitter(seed),
+            scoring=scorers(),
+            return_train_score=True,
+            n_jobs=-1,
         )
     return pd.DataFrame(result)
 
@@ -298,9 +299,9 @@ def run_search(
     return SearchRun(name, search, search_seconds, float(search.refit_time_), predict_ms)
 
 
-def _cache_path(name: str, n_iter: int, seed: int) -> Path:
+def _cache_path(name: str, n_iter: int, seed: int, tag: str = "") -> Path:
     slug = name.lower().replace(" ", "_")
-    return config.MODELS_DIR / f"{slug}_search_n{n_iter}_seed{seed}.joblib"
+    return config.MODELS_DIR / f"{slug}_search_n{n_iter}_seed{seed}{'_' + tag if tag else ''}.joblib"
 
 
 def load_or_run_search(
@@ -310,14 +311,16 @@ def load_or_run_search(
     n_iter: int = config.N_SEARCH_ITER,
     seed: int = config.SEED,
     force: bool = False,
+    tag: str = "",
 ) -> SearchRun:
     """Return a cached search if one exists for these settings, otherwise run and cache it.
 
     Searching takes minutes, while rewriting the explanation around the results does not need a
     refit. I key the cache on the model, n_iter and seed, and store the training-data shape with
-    it so a cache built on different data is never reused silently.
+    it so a cache built on different data is never reused silently. `tag` names a search on other columns
+    (for example "nofp", without the attacking hosts' TCP settings) so it never overwrites the main cache.
     """
-    path = _cache_path(name, n_iter, seed)
+    path = _cache_path(name, n_iter, seed, tag)
     if path.exists() and not force:
         # joblib unpickles arbitrary objects, so I only ever load files this function wrote itself
         # into the local, git-ignored models/ folder; never point this at a downloaded file.

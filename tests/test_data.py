@@ -30,14 +30,16 @@ def _chunk(rows: list[dict]) -> pd.DataFrame:
 
 
 def test_clean_chunk_removes_non_finite_and_negative_rows_but_keeps_sentinels():
-    chunk = _chunk([
-        {},                                  # valid
-        {"Flow Byts/s": np.inf},             # +Infinity
-        {"Flow Pkts/s": -np.inf},            # -Infinity
-        {"Flow Byts/s": np.nan},             # NaN
-        {"Flow Duration": -5.0},             # impossible negative duration
-        {"Init Fwd Win Byts": -1.0},         # documented sentinel: must be kept
-    ])
+    chunk = _chunk(
+        [
+            {},  # valid
+            {"Flow Byts/s": np.inf},  # +Infinity
+            {"Flow Pkts/s": -np.inf},  # -Infinity
+            {"Flow Byts/s": np.nan},  # NaN
+            {"Flow Duration": -5.0},  # impossible negative duration
+            {"Init Fwd Win Byts": -1.0},  # documented sentinel: must be kept
+        ]
+    )
     result = data.clean_chunk(chunk)
 
     assert len(result.kept) == 2
@@ -50,13 +52,15 @@ def test_clean_chunk_removes_non_finite_and_negative_rows_but_keeps_sentinels():
 
 
 def test_flow_hash_ignores_timestamp_and_port_but_not_features():
-    chunk = _chunk([
-        {},
-        {"Timestamp": "14/02/2018 09:00:00", "Dst Port": 21.0},  # same flow, other time/port
-        {"Flow Duration": 101.0},                                 # different flow
-        {"Flow Duration": 0.0},
-        {"Flow Duration": -0.0},                                  # -0.0 must equal 0.0
-    ])
+    chunk = _chunk(
+        [
+            {},
+            {"Timestamp": "14/02/2018 09:00:00", "Dst Port": 21.0},  # same flow, other time/port
+            {"Flow Duration": 101.0},  # different flow
+            {"Flow Duration": 0.0},
+            {"Flow Duration": -0.0},  # -0.0 must equal 0.0
+        ]
+    )
     hashes = data.flow_hash(chunk)
     assert hashes[0] == hashes[1]
     assert hashes[0] != hashes[2]
@@ -87,10 +91,12 @@ def test_allocation_rejects_oversized_request():
 
 def test_stratified_sample_is_deterministic():
     rng = np.random.default_rng(0)
-    flows = pd.DataFrame({
-        "x": rng.normal(size=1_000),
-        "Label": ["a"] * 900 + ["b"] * 95 + ["c"] * 5,
-    })
+    flows = pd.DataFrame(
+        {
+            "x": rng.normal(size=1_000),
+            "Label": ["a"] * 900 + ["b"] * 95 + ["c"] * 5,
+        }
+    )
     first = data.stratified_sample(flows, n_total=100, floor=10, seed=42)
     second = data.stratified_sample(flows, n_total=100, floor=10, seed=42)
     assert first.equals(second)

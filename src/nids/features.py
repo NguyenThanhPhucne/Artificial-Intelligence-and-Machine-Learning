@@ -7,6 +7,8 @@ only, so no statistic from a validation fold or from the test set can leak into 
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 from imblearn.pipeline import Pipeline
@@ -19,9 +21,7 @@ from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardSc
 from . import config
 
 
-def model_columns(
-    X: pd.DataFrame, include_dst_port: bool = False
-) -> tuple[list[str], list[str]]:
+def model_columns(X: pd.DataFrame, include_dst_port: bool = False) -> tuple[list[str], list[str]]:
     """Return (categorical, numeric) column lists that my models are allowed to see.
 
     I always drop Timestamp. I drop Dst Port in the main model because CIC created the labels from
@@ -34,6 +34,23 @@ def model_columns(
     categorical = [c for c in config.CATEGORICAL_COLS if c in X.columns]
     numeric = [c for c in X.columns if c not in excluded and c not in categorical]
     return categorical, numeric
+
+
+def timing_columns(columns) -> list[str]:
+    """Return the timing columns (see config.TIMING_COL_PATTERN) in their original order."""
+    pattern = re.compile(config.TIMING_COL_PATTERN)
+    return [c for c in columns if pattern.search(c)]
+
+
+def shape_columns(X: pd.DataFrame) -> list[str]:
+    """Return Protocol plus every numeric model column that is not a timing column.
+
+    Two flows with equal values in all of these columns sent the same packets with the same sizes, headers,
+    flags and windows; they differ only in when the packets arrived.
+    """
+    categorical, numeric = model_columns(X.drop(columns=[config.LABEL_COL], errors="ignore"))
+    timing = set(timing_columns(numeric))
+    return categorical + [c for c in numeric if c not in timing and pd.api.types.is_numeric_dtype(X[c])]
 
 
 def symlog(values: pd.DataFrame | np.ndarray) -> pd.DataFrame | np.ndarray:
@@ -57,10 +74,10 @@ class CorrelationFilter(TransformerMixin, BaseEstimator):
 
     Lab 5 treats |r| >= 0.7 as a high correlation; two such columns carry largely the same
     information, which makes linear coefficients unstable and costs fitting time. I use Spearman's
-    rank correlation rather than Pearson's because my EDA (notebook 02, "Pearson or Spearman?"; report
-    section 2.3) showed that most strong relationships between flow features are monotonic but curved,
-    which Pearson under-states; ranks
-    are also unchanged by the optional symlog step, so the same columns are chosen with or without it.
+    rank correlation rather than Pearson's because my EDA (notebook 02, section 2.3 "Correlation and
+    redundancy", paragraph "Pearson or Spearman?"; report section 2.3) showed that most strong
+    relationships between flow features are monotonic but curved, which Pearson under-states; ranks are
+    also unchanged by the optional symlog step, so the same columns are chosen with or without it.
 
     The scan is greedy in input order: a column is kept when its |rho| with every column kept so far
     is below `threshold`. The rule is learned in `fit` only, so inside a cross-validated pipeline each
@@ -70,7 +87,7 @@ class CorrelationFilter(TransformerMixin, BaseEstimator):
     def __init__(self, threshold: float = 0.7) -> None:
         self.threshold = threshold
 
-    def fit(self, X, y=None) -> "CorrelationFilter":
+    def fit(self, X, y=None) -> CorrelationFilter:
         frame = self._as_frame(X)
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.asarray(frame.columns, dtype=object)
@@ -126,13 +143,15 @@ def build_preprocessor(X: pd.DataFrame, include_dst_port: bool = False) -> Colum
     # outer level, where the resampler sits. The "log" step is a pass-through by default; I let the
     # hyper-parameter search switch it to symlog, because my EDA showed heavy right tails that can
     # dominate a linear model even after standardisation (trees are unaffected by monotonic maps).
-    numeric_steps = SkPipeline([
-        ("log", "passthrough"),
-        ("drop_constant", VarianceThreshold(threshold=0.0)),
-        # Off by default; the feature-selection ablation sets it to CorrelationFilter(threshold).
-        ("corr_filter", "passthrough"),
-        ("scale", StandardScaler()),
-    ])
+    numeric_steps = SkPipeline(
+        [
+            ("log", "passthrough"),
+            ("drop_constant", VarianceThreshold(threshold=0.0)),
+            # Off by default; the feature-selection ablation sets it to CorrelationFilter(threshold).
+            ("corr_filter", "passthrough"),
+            ("scale", StandardScaler()),
+        ]
+    )
     return ColumnTransformer(
         [
             ("protocol", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical),

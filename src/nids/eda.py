@@ -14,7 +14,7 @@ from scipy.spatial.distance import squareform
 from sklearn.feature_selection import mutual_info_classif
 
 from . import config
-from .features import model_columns, symlog
+from .features import model_columns, shape_columns, symlog
 
 
 def numeric_model_features(X: pd.DataFrame) -> pd.DataFrame:
@@ -49,19 +49,21 @@ def descriptive_statistics(X_numeric: pd.DataFrame) -> pd.DataFrame:
     report kurtosis as excess kurtosis (0 for a normal distribution), pandas' convention.
     """
     q1, q3 = X_numeric.quantile(0.25), X_numeric.quantile(0.75)
-    return pd.DataFrame({
-        "mean": X_numeric.mean(),
-        "median": X_numeric.median(),
-        "mode": X_numeric.mode().iloc[0],
-        "std": X_numeric.std(),
-        "variance": X_numeric.var(),
-        "min": X_numeric.min(),
-        "max": X_numeric.max(),
-        "range": X_numeric.max() - X_numeric.min(),
-        "IQR": q3 - q1,
-        "skewness": X_numeric.skew(),
-        "kurtosis": X_numeric.kurt(),
-    })
+    return pd.DataFrame(
+        {
+            "mean": X_numeric.mean(),
+            "median": X_numeric.median(),
+            "mode": X_numeric.mode().iloc[0],
+            "std": X_numeric.std(),
+            "variance": X_numeric.var(),
+            "min": X_numeric.min(),
+            "max": X_numeric.max(),
+            "range": X_numeric.max() - X_numeric.min(),
+            "IQR": q3 - q1,
+            "skewness": X_numeric.skew(),
+            "kurtosis": X_numeric.kurt(),
+        }
+    )
 
 
 def variance_ranking(X_numeric: pd.DataFrame) -> pd.Series:
@@ -97,9 +99,7 @@ def highly_correlated_pairs(corr: pd.DataFrame, threshold: float = 0.95) -> pd.D
     return pairs[pairs["r"].abs() >= threshold].sort_values("r", key=np.abs, ascending=False)
 
 
-def mutual_information_ranking(
-    X_numeric: pd.DataFrame, y: pd.Series, seed: int = config.SEED
-) -> pd.Series:
+def mutual_information_ranking(X_numeric: pd.DataFrame, y: pd.Series, seed: int = config.SEED) -> pd.Series:
     """Rank features by mutual information with the class label, highest first.
 
     I use mutual information because it captures any dependency, including the non-linear,
@@ -121,9 +121,7 @@ def label_entropy(y: pd.Series) -> float:
     return float(-(p * np.log(p)).sum())
 
 
-def select_diverse(
-    ranking: pd.Series, X_numeric: pd.DataFrame, k: int = 6, max_abs_r: float = 0.9
-) -> list[str]:
+def select_diverse(ranking: pd.Series, X_numeric: pd.DataFrame, k: int = 6, max_abs_r: float = 0.9) -> list[str]:
     """Pick the k best-ranked features, skipping any that is redundant with one already picked.
 
     Many top features carry almost the same information (e.g. packet-length maximum and mean), so
@@ -160,12 +158,16 @@ def port_profile(X: pd.DataFrame, y: pd.Series, top: int = 3) -> pd.DataFrame:
     frames = []
     for label, ports in X[config.DST_PORT_COL].groupby(y, observed=True):
         share = ports.value_counts(normalize=True).head(top) * 100
-        frames.append(pd.DataFrame({
-            "class": label,
-            "dst_port": share.index.astype(int),
-            "percent_of_class": share.to_numpy(),
-            "distinct_ports_in_class": ports.nunique(),
-        }))
+        frames.append(
+            pd.DataFrame(
+                {
+                    "class": label,
+                    "dst_port": share.index.astype(int),
+                    "percent_of_class": share.to_numpy(),
+                    "distinct_ports_in_class": ports.nunique(),
+                }
+            )
+        )
     return pd.concat(frames, ignore_index=True)
 
 
@@ -197,21 +199,18 @@ def pairwise_correlations(X_numeric: pd.DataFrame) -> pd.DataFrame:
     return pairs
 
 
-def correlation_method_counts(
-    pairs: pd.DataFrame, thresholds: tuple[float, ...] = (0.7, 0.9, 0.95)
-) -> pd.DataFrame:
+def correlation_method_counts(pairs: pd.DataFrame, thresholds: tuple[float, ...] = (0.7, 0.9, 0.95)) -> pd.DataFrame:
     """Count the pairs whose |correlation| reaches each threshold, for each measure.
 
     0.7 is the "high correlation" cut-off used in the Week 5 lab; 0.9 and 0.95 show how the picture
     changes for near-duplicate columns.
     """
-    counts = {
-        method: [int((pairs[method].abs() >= t).sum()) for t in thresholds] for method in CORRELATION_METHODS
-    }
+    counts = {method: [int((pairs[method].abs() >= t).sum()) for t in thresholds] for method in CORRELATION_METHODS}
     return pd.DataFrame(counts, index=pd.Index(list(thresholds), name="threshold"))
 
 
 # --- Week 6 lab: subsample for a readable pair plot -----------------------------------------------
+
 
 def stratified_subsample(
     X: pd.DataFrame, y: pd.Series, n: int, keep_all: str = "FTP-BruteForce", seed: int = config.SEED
@@ -235,3 +234,48 @@ def stratified_subsample(
         chosen.extend(rng.choice(pool, size=min(quota, len(pool)), replace=False))
     index = pd.Index(sorted(chosen))
     return X.loc[index], y.loc[index]
+
+
+# Columns that describe the packets of a flow, for the one-row "packet pattern" of a class.
+PACKET_PATTERN_COLS: tuple[str, ...] = (
+    "Tot Fwd Pkts",
+    "Tot Bwd Pkts",
+    "TotLen Fwd Pkts",
+    "TotLen Bwd Pkts",
+    "Fwd Header Len",
+    "Bwd Header Len",
+    "Init Fwd Win Byts",
+    "Init Bwd Win Byts",
+    config.FLOW_DURATION_COL,
+)
+
+
+def shape_signature(X: pd.DataFrame) -> pd.Series:
+    """A 64-bit hash of each flow's shape columns (features.shape_columns): equal hash = same packets.
+
+    Timing columns and Dst Port are left out, so two flows that sent identical packets at different speeds, or
+    to another port, share a signature.
+    """
+    return pd.util.hash_pandas_object(X[shape_columns(X)], index=False).set_axis(X.index)
+
+
+def class_shape_profile(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+    """Per class: flows, distinct shapes, flows in the largest shape and its share of the class."""
+    signature = pd.Series(shape_signature(X).to_numpy(), name="shape")
+    labels = pd.Series(np.asarray(y), name="label")
+    rows = {}
+    for label, shapes in signature.groupby(labels, sort=False):
+        sizes = shapes.value_counts()
+        rows[label] = {
+            "flows": len(shapes),
+            "shapes": len(sizes),
+            "largest shape": int(sizes.iloc[0]),
+            "largest shape share": sizes.iloc[0] / len(shapes),
+        }
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def packet_pattern(X: pd.DataFrame, y: pd.Series, label: str) -> pd.DataFrame:
+    """Minimum and maximum of the packet columns (and duration, in microseconds) for one class."""
+    flows = X.loc[np.asarray(y) == label, [c for c in PACKET_PATTERN_COLS if c in X.columns]]
+    return flows.agg(["min", "max"]).T

@@ -12,7 +12,7 @@ import json
 import platform
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -27,14 +27,13 @@ NON_FEATURE_COLS = (config.LABEL_COL, config.TIMESTAMP_COL)
 
 # --- Loading -------------------------------------------------------------------------------------
 
+
 def raw_columns(path: Path = config.RAW_CSV) -> list[str]:
     """Return the column names of the raw CSV by reading its header only."""
     return pd.read_csv(path, nrows=0).columns.tolist()
 
 
-def read_raw_in_chunks(
-    path: Path = config.RAW_CSV, chunksize: int = config.CHUNK_SIZE
-) -> Iterator[pd.DataFrame]:
+def read_raw_in_chunks(path: Path = config.RAW_CSV, chunksize: int = config.CHUNK_SIZE) -> Iterator[pd.DataFrame]:
     """Yield the raw CSV in chunks with explicit dtypes.
 
     I fix every feature to float64 so that pandas does not infer types per chunk (which can disagree
@@ -52,9 +51,7 @@ def feature_columns(df: pd.DataFrame) -> list[str]:
     return [c for c in df.columns if c not in NON_FEATURE_COLS]
 
 
-def attribute_table(
-    frame: pd.DataFrame, reference_path: Path = config.FEATURE_REFERENCE_CSV
-) -> pd.DataFrame:
+def attribute_table(frame: pd.DataFrame, reference_path: Path = config.FEATURE_REFERENCE_CSV) -> pd.DataFrame:
     """Build one row per column for report section 1.1: CIC description, role and observed values.
 
     I raise an error when the reference table and the data disagree on column names, so that a
@@ -65,16 +62,17 @@ def attribute_table(
     if missing:
         raise ValueError(f"Reference table and data disagree on columns: {sorted(missing)}")
 
-    observed = pd.DataFrame({
-        "csv_column": frame.columns,
-        "dtype": [str(t) for t in frame.dtypes],
-        "n_unique": [frame[c].nunique() for c in frame.columns],
-    })
+    observed = pd.DataFrame(
+        {
+            "csv_column": frame.columns,
+            "dtype": [str(t) for t in frame.dtypes],
+            "n_unique": [frame[c].nunique() for c in frame.columns],
+        }
+    )
     table = reference.merge(observed, on="csv_column", how="left", validate="one_to_one")
     table["constant"] = table["n_unique"] == 1
     table["level_of_measurement"] = [
-        level_of_measurement(row.csv_column, row.role, frame[row.csv_column])
-        for row in table.itertuples()
+        level_of_measurement(row.csv_column, row.role, frame[row.csv_column]) for row in table.itertuples()
     ]
     return table
 
@@ -100,6 +98,7 @@ def level_of_measurement(column: str, role: str, values: pd.Series) -> str:
 
 
 # --- Row-wise cleaning ---------------------------------------------------------------------------
+
 
 @dataclass
 class ChunkCleaning:
@@ -149,6 +148,7 @@ def clean_chunk(chunk: pd.DataFrame) -> ChunkCleaning:
 
 
 # --- De-duplication ------------------------------------------------------------------------------
+
 
 def flow_hash(df: pd.DataFrame, ignore: tuple[str, ...] = config.DEDUP_IGNORE_COLS) -> pd.Series:
     """Return a 64-bit hash of each row's feature vector, ignoring the label and `ignore` columns.
@@ -256,9 +256,7 @@ def build_unique_flows(
     return flows, report
 
 
-def build_cleaned_rows(
-    path: Path = config.RAW_CSV, chunksize: int = config.CHUNK_SIZE
-) -> pd.DataFrame:
+def build_cleaned_rows(path: Path = config.RAW_CSV, chunksize: int = config.CHUNK_SIZE) -> pd.DataFrame:
     """Return every row that survives row-wise cleaning, *without* de-duplication.
 
     I only use this for the ablation that shows what a naive pipeline would report: sampling and
@@ -278,6 +276,7 @@ def train_test_overlap(split: Split) -> pd.Series:
 
 
 # --- Sampling ------------------------------------------------------------------------------------
+
 
 def allocate_with_floor(class_counts: pd.Series, n_total: int, floor: int) -> pd.Series:
     """Return rows to draw per class: proportional to class size, but at least min(size, floor).
@@ -321,14 +320,12 @@ def stratified_sample(
 ) -> pd.DataFrame:
     """Draw a reproducible stratified sample (see allocate_with_floor) and shuffle its rows."""
     allocation = allocate_with_floor(flows[LABEL].value_counts(), n_total, floor)
-    parts = [
-        flows[flows[LABEL] == label].sample(n=int(n), random_state=seed)
-        for label, n in allocation.items()
-    ]
+    parts = [flows[flows[LABEL] == label].sample(n=int(n), random_state=seed) for label, n in allocation.items()]
     return pd.concat(parts).sample(frac=1, random_state=seed).reset_index(drop=True)
 
 
 # --- Train/test split ----------------------------------------------------------------------------
+
 
 @dataclass
 class Split:
@@ -340,9 +337,7 @@ class Split:
     y_test: pd.Series
 
 
-def split_sample(
-    sample: pd.DataFrame, test_size: float = config.TEST_SIZE, seed: int = config.SEED
-) -> Split:
+def split_sample(sample: pd.DataFrame, test_size: float = config.TEST_SIZE, seed: int = config.SEED) -> Split:
     """Split the sample 80/20, stratified by label.
 
     I stratify so that the 46 FTP-BruteForce flows are shared between training and test in the same
@@ -352,9 +347,7 @@ def split_sample(
     """
     X = sample.drop(columns=LABEL)
     y = sample[LABEL]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, stratify=y, random_state=seed
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=seed)
     return Split(X_train, X_test, y_train, y_test)
 
 
@@ -385,10 +378,12 @@ def assert_no_leakage(split: Split) -> dict[str, int]:
 
 def save_split(split: Split, path: Path = config.SPLIT_PARQUET) -> None:
     """Store which sample row went to which partition, so later notebooks reuse the exact split."""
-    assignment = pd.concat([
-        pd.DataFrame({"row": split.X_train.index, "partition": "train"}),
-        pd.DataFrame({"row": split.X_test.index, "partition": "test"}),
-    ]).sort_values("row")
+    assignment = pd.concat(
+        [
+            pd.DataFrame({"row": split.X_train.index, "partition": "train"}),
+            pd.DataFrame({"row": split.X_test.index, "partition": "test"}),
+        ]
+    ).sort_values("row")
     assignment.to_parquet(path, index=False)
 
 
@@ -402,6 +397,7 @@ def load_split(sample: pd.DataFrame, path: Path = config.SPLIT_PARQUET) -> Split
 
 
 # --- Persistence ---------------------------------------------------------------------------------
+
 
 def sha256_of(path: Path, block: int = 1 << 20) -> str:
     """Return the SHA-256 of a file, read in 1 MB blocks."""
@@ -428,7 +424,7 @@ def save_sample(
 
     stages = report.stage_table(sample[LABEL].value_counts())
     manifest = {
-        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "created_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "raw_file": raw_path.name,
         "raw_original_aws_name": config.ORIGINAL_AWS_FILENAME,
         "raw_sha256": sha256_of(raw_path),
@@ -465,6 +461,7 @@ def load_sample(path: Path = config.SAMPLE_PARQUET) -> pd.DataFrame:
 
 # --- Unseen day (Week 6 lab: predict on new data) --------------------------------------------------
 
+
 def unseen_day_sample(
     known: pd.DataFrame,
     path: Path | None = None,
@@ -491,14 +488,18 @@ def unseen_day_sample(
         parts.append(group.sample(n=min(cap, len(group)), random_state=seed))
     sample = pd.concat(parts).sort_index().reset_index(drop=True)
     sample[LABEL] = sample[LABEL].astype(str)
-    stages = pd.DataFrame(
-        {
-            "raw": report.raw,
-            "unique": report.unique,
-            "removed_as_known": removed,
-            "sampled": sample[LABEL].value_counts(),
-        }
-    ).T.fillna(0).astype("int64")
+    stages = (
+        pd.DataFrame(
+            {
+                "raw": report.raw,
+                "unique": report.unique,
+                "removed_as_known": removed,
+                "sampled": sample[LABEL].value_counts(),
+            }
+        )
+        .T.fillna(0)
+        .astype("int64")
+    )
     stages.columns = [str(c) for c in stages.columns]
     return sample, stages
 

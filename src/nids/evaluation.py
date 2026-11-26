@@ -8,10 +8,9 @@ without turning the test set into a second validation set.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import time
 import warnings
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -19,6 +18,7 @@ from imblearn.under_sampling import TomekLinks
 from sklearn.base import BaseEstimator, clone
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -26,14 +26,14 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
     KFold,
-    StratifiedKFold,
+    StratifiedGroupKFold,
     cross_val_score,
     cross_validate,
     learning_curve,
 )
+from sklearn.neighbors import NearestNeighbors
 
 from . import config, models
 from .features import CorrelationFilter, build_pipeline
@@ -53,9 +53,7 @@ def score_predictions(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]
         "f1_macro": f1_score(y_true, y_pred, average="macro"),
         "precision_macro": precision_score(y_true, y_pred, average="macro", zero_division=0),
         "recall_macro": recall_score(y_true, y_pred, average="macro", zero_division=0),
-        "recall_ftp": recall_score(
-            y_true, y_pred, labels=[models.MINORITY_CLASS], average="macro", zero_division=0
-        ),
+        "recall_ftp": recall_score(y_true, y_pred, labels=[models.MINORITY_CLASS], average="macro", zero_division=0),
     }
 
 
@@ -185,16 +183,16 @@ def importance_table(model: BaseEstimator, X: pd.DataFrame, y: pd.Series, top: i
     impurity = pd.Series(model.named_steps["model"].feature_importances_, index=fitted_names)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        perm = permutation_importance(
-            model, X, y, scoring="f1_macro", n_repeats=5, random_state=config.SEED, n_jobs=-1
-        )
+        perm = permutation_importance(model, X, y, scoring="f1_macro", n_repeats=5, random_state=config.SEED, n_jobs=-1)
     permutation = pd.Series(perm.importances_mean, index=X.columns)
     permutation_std = pd.Series(perm.importances_std, index=X.columns)
-    table = pd.DataFrame({
-        "impurity_importance": impurity,
-        "permutation_drop_f1_macro": permutation.reindex(impurity.index),
-        "permutation_std": permutation_std.reindex(impurity.index),
-    })
+    table = pd.DataFrame(
+        {
+            "impurity_importance": impurity,
+            "permutation_drop_f1_macro": permutation.reindex(impurity.index),
+            "permutation_std": permutation_std.reindex(impurity.index),
+        }
+    )
     return table.sort_values("impurity_importance", ascending=False).head(top)
 
 
@@ -266,7 +264,7 @@ def tree_rules_in_original_units(pipeline: BaseEstimator, max_depth: int = 3) ->
     classes = pipeline.named_steps["model"].classes_
 
     def raw_threshold(feature: int, z: float) -> str:
-        if feature < n_protocol:                       # one-hot Protocol column: 0/1 indicator
+        if feature < n_protocol:  # one-hot Protocol column: 0/1 indicator
             return f"{names[feature]} is {'not set' if z < 0.5 else 'set'}"
         j = feature - n_protocol
         return f"{z * scale[j] + mean[j]:,.2f}"
@@ -294,6 +292,7 @@ def tree_rules_in_original_units(pipeline: BaseEstimator, max_depth: int = 3) ->
 
 
 # --- Techniques from the module's lectures, applied to this data -----------------------------------
+
 
 def fold_composition(y: pd.Series, minority: str = models.MINORITY_CLASS) -> pd.DataFrame:
     """Count the minority-class flows in each validation fold under three 5-fold splitters.
@@ -331,13 +330,23 @@ def splitter_scores(pipeline: BaseEstimator, X: pd.DataFrame, y: pd.Series) -> p
     for name, splitter in splitters.items():
         for metric in ("accuracy", "f1_macro"):
             scores = cross_val_score(clone(pipeline), X, y, cv=splitter, scoring=metric, n_jobs=-1)
-            rows.append({"splitter": name, "metric": metric, "mean": scores.mean(), "std": scores.std(),
-                         "per_fold": ", ".join(f"{v:.4f}" for v in scores)})
+            rows.append(
+                {
+                    "splitter": name,
+                    "metric": metric,
+                    "mean": scores.mean(),
+                    "std": scores.std(),
+                    "per_fold": ", ".join(f"{v:.4f}" for v in scores),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def regularisation_comparison(
-    run: models.SearchRun, X: pd.DataFrame, y: pd.Series, params: dict,
+    run: models.SearchRun,
+    X: pd.DataFrame,
+    y: pd.Series,
+    params: dict,
     extra_c: tuple[float, ...] = (1.0, 0.1, 0.01),
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Compare L2 (ridge) and L1 (lasso) penalties for the selected Logistic Regression (Week 9).
@@ -358,34 +367,48 @@ def regularisation_comparison(
     for c in c_values:
         for label, ratio in (("L2 (ridge)", 0.0), ("L1 (lasso)", 1.0)):
             pipeline = clone(run.search.estimator).set_params(**params)
-            pipeline.set_params(model=LogisticRegression(
-                C=c, l1_ratio=ratio, solver="saga", tol=1e-3, max_iter=5_000,
-                random_state=config.SEED,
-            ))
+            pipeline.set_params(
+                model=LogisticRegression(
+                    C=c,
+                    l1_ratio=ratio,
+                    solver="saga",
+                    tol=1e-3,
+                    max_iter=5_000,
+                    random_state=config.SEED,
+                )
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", ConvergenceWarning)
-                cv = cross_validate(pipeline, X, y, cv=models.cv_splitter(), scoring="f1_macro",
-                                    return_train_score=True, n_jobs=-1)
+                cv = cross_validate(
+                    pipeline, X, y, cv=models.cv_splitter(), scoring="f1_macro", return_train_score=True, n_jobs=-1
+                )
                 fitted = clone(pipeline).fit(X, y)
-            coef = pd.DataFrame(fitted.named_steps["model"].coef_.T,
-                                index=fitted.named_steps["preprocess"].get_feature_names_out(),
-                                columns=fitted.named_steps["model"].classes_)
+            coef = pd.DataFrame(
+                fitted.named_steps["model"].coef_.T,
+                index=fitted.named_steps["preprocess"].get_feature_names_out(),
+                columns=fitted.named_steps["model"].classes_,
+            )
             if c == c_values[0]:
                 coefficients[label] = coef
             zero = (coef.abs() < 1e-10).all(axis=1)
-            rows.append({
-                "C": c, "penalty": label,
-                "train_f1_macro": cv["train_score"].mean(),
-                "cv_f1_macro_mean": cv["test_score"].mean(),
-                "cv_f1_macro_std": cv["test_score"].std(),
-                "features_removed": int(zero.sum()),
-                "features_used": int((~zero).sum()),
-            })
+            rows.append(
+                {
+                    "C": c,
+                    "penalty": label,
+                    "train_f1_macro": cv["train_score"].mean(),
+                    "cv_f1_macro_mean": cv["test_score"].mean(),
+                    "cv_f1_macro_std": cv["test_score"].std(),
+                    "features_removed": int(zero.sum()),
+                    "features_used": int((~zero).sum()),
+                }
+            )
     return pd.DataFrame(rows), pd.concat(coefficients, axis=1)
 
 
 def learning_curve_table(
-    pipeline: BaseEstimator, X: pd.DataFrame, y: pd.Series,
+    pipeline: BaseEstimator,
+    X: pd.DataFrame,
+    y: pd.Series,
     sizes: tuple[float, ...] = (0.3, 0.45, 0.6, 0.8, 1.0),
 ) -> pd.DataFrame:
     """Training- and validation-fold macro F1 as the training set grows (Week 2: under/over-fitting).
@@ -397,18 +420,30 @@ def learning_curve_table(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ConvergenceWarning)
         n, train, valid = learning_curve(
-            clone(pipeline), X, y, train_sizes=list(sizes), cv=models.cv_splitter(),
-            scoring="f1_macro", shuffle=True, random_state=config.SEED, n_jobs=-1,
+            clone(pipeline),
+            X,
+            y,
+            train_sizes=list(sizes),
+            cv=models.cv_splitter(),
+            scoring="f1_macro",
+            shuffle=True,
+            random_state=config.SEED,
+            n_jobs=-1,
             error_score=np.nan,
         )
-    return pd.DataFrame({
-        "train_flows": n,
-        "train_mean": np.nanmean(train, axis=1), "train_std": np.nanstd(train, axis=1),
-        "valid_mean": np.nanmean(valid, axis=1), "valid_std": np.nanstd(valid, axis=1),
-    })
+    return pd.DataFrame(
+        {
+            "train_flows": n,
+            "train_mean": np.nanmean(train, axis=1),
+            "train_std": np.nanstd(train, axis=1),
+            "valid_mean": np.nanmean(valid, axis=1),
+            "valid_std": np.nanstd(valid, axis=1),
+        }
+    )
 
 
 # --- Unseen day (Week 6 lab: predict on new data) --------------------------------------------------
+
 
 def wilson_interval(errors: int, n: int, z: float = 1.96) -> dict[str, float]:
     """Error rate with a 95% Wilson score interval.
@@ -420,6 +455,122 @@ def wilson_interval(errors: int, n: int, z: float = 1.96) -> dict[str, float]:
     centre = (rate + z**2 / (2 * n)) / (1 + z**2 / n)
     half = z * np.sqrt(rate * (1 - rate) / n + z**2 / (4 * n**2)) / (1 + z**2 / n)
     return {"rate": rate, "ci_low": max(0.0, centre - half), "ci_high": min(1.0, centre + half), "n": n}
+
+
+def apply_selection_rule(cv_mean: pd.Series, cv_std: pd.Series, inference_ms: pd.Series) -> tuple[str, list[str]]:
+    """My pre-registered rule: highest CV macro F1; models within one SD of the leader tie; the fastest tied wins.
+
+    Returns (chosen model, tied models in the order given). I fixed this rule before looking at any test score.
+    """
+    leader = cv_mean.idxmax()
+    tied = cv_mean[cv_mean >= cv_mean[leader] - cv_std[leader]].index.tolist()
+    return inference_ms[tied].idxmin(), tied
+
+
+def nearest_train_distance(
+    preprocess, X_train: pd.DataFrame, y_train: pd.Series, X_other: pd.DataFrame, p: int = 2
+) -> pd.DataFrame:
+    """For each row of X_other: distance to the nearest training flow and that flow's label.
+
+    I measure in the space the k-NN model works in: `preprocess` is the already fitted first step of its
+    pipeline (one-hot Protocol, constant columns dropped, MinMax scaling), and `p` its Minkowski power. I never
+    refit it here; refitting on another set would change the scale and so the distances.
+    """
+    train = preprocess.transform(X_train)
+    finder = NearestNeighbors(n_neighbors=1, p=p).fit(train)
+    distance, index = finder.kneighbors(preprocess.transform(X_other))
+    return pd.DataFrame(
+        {"distance": distance[:, 0], "neighbour_label": y_train.to_numpy()[index[:, 0]]}, index=X_other.index
+    )
+
+
+def train_self_distance(preprocess, X_train: pd.DataFrame, y_train: pd.Series, p: int = 2) -> pd.DataFrame:
+    """Like nearest_train_distance for the training flows themselves, leaving each flow out of its own search.
+
+    This is the yardstick: how close two different training flows normally are. Calling kneighbors without
+    a query makes scikit-learn skip the point itself, so an exact copy elsewhere still counts as distance 0.
+    """
+    finder = NearestNeighbors(n_neighbors=1, p=p).fit(preprocess.transform(X_train))
+    distance, index = finder.kneighbors()
+    return pd.DataFrame(
+        {"distance": distance[:, 0], "neighbour_label": y_train.to_numpy()[index[:, 0]]}, index=X_train.index
+    )
+
+
+def distance_summary(
+    dist: pd.DataFrame, labels: pd.Series, thresholds: tuple[float, ...] = (1e-3, 1e-2)
+) -> pd.DataFrame:
+    """Per true class (and "All"): flows, median and 90th percentile distance, share closer than each
+    threshold, and share whose nearest training flow has the same class."""
+    frame = dist.assign(label=np.asarray(labels))
+    rows = {}
+    for name, part in [*frame.groupby("label", sort=False), ("All", frame)]:
+        row = {"flows": len(part), "median": part["distance"].median(), "p90": part["distance"].quantile(0.9)}
+        row.update({f"share < {t:g}": (part["distance"] < t).mean() for t in thresholds})
+        row["neighbour same class"] = (part["neighbour_label"] == part["label"]).mean()
+        rows[name] = row
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+CLASS_LABELS = ("Benign", "FTP-BruteForce", "SSH-Bruteforce")
+
+
+def shape_group_splitter() -> StratifiedGroupKFold:
+    """Week 7's StratifiedKFold extended with groups: no flow shape is in both the training and validation fold."""
+    return StratifiedGroupKFold(n_splits=config.CV_FOLDS, shuffle=True, random_state=config.SEED)
+
+
+def _folds(splitter, X: pd.DataFrame, labels: np.ndarray, groups: np.ndarray):
+    # Only group-aware splitters take `groups`; scikit-learn warns when the others are given it.
+    return splitter.split(X, labels, groups) if "Group" in type(splitter).__name__ else splitter.split(X, labels)
+
+
+def group_overlap(splitter, X: pd.DataFrame, y: pd.Series, groups) -> int:
+    """Number of (fold, group) pairs where a group sits on both sides of the split; 0 for a grouped splitter."""
+    groups = np.asarray(groups)
+    return sum(
+        len(set(groups[train]) & set(groups[valid])) for train, valid in _folds(splitter, X, np.asarray(y), groups)
+    )
+
+
+def grouped_cv(
+    pipeline: BaseEstimator, X: pd.DataFrame, y: pd.Series, groups, splitter=None, return_predictions: bool = False
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.Series]:
+    """Per fold: recall of each class, benign false-alarm rate, macro F1 on Benign and SSH flows, and counts.
+
+    By default the folds are grouped by `groups` (shape_group_splitter); pass another splitter for the ungrouped
+    comparison. A class absent from a validation fold gets NaN recall. A class absent from a training fold
+    cannot be predicted there, so its recall in that validation fold is 0: I report this, I do not hide it.
+    I score macro F1 on the Benign and SSH flows only, so the comparison does not depend on where FTP lands.
+    With `return_predictions`, I also return each flow's out-of-fold prediction (to see *which* flows are missed).
+    """
+    splitter = shape_group_splitter() if splitter is None else splitter
+    labels, groups = np.asarray(y), np.asarray(groups)
+    benign, ftp, ssh = CLASS_LABELS
+    rows, predictions = [], pd.Series(index=X.index, dtype=object)
+    for fold, (train, valid) in enumerate(_folds(splitter, X, labels, groups), start=1):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ConvergenceWarning)
+            model = clone(pipeline).fit(X.iloc[train], labels[train])
+        true, pred = labels[valid], model.predict(X.iloc[valid])
+        predictions.iloc[valid] = pred
+        row = {
+            "fold": fold,
+            "valid groups": len(set(groups[valid])),
+            "FTP train": int((labels[train] == ftp).sum()),
+            "FTP valid": int((true == ftp).sum()),
+        }
+        for name in CLASS_LABELS:
+            mask = true == name
+            row[f"recall {name}"] = float((pred[mask] == name).mean()) if mask.any() else np.nan
+        row["false alarm rate"] = 1 - row[f"recall {benign}"]
+        two = np.isin(true, [benign, ssh])
+        row["macro F1 (Benign, SSH)"] = f1_score(
+            true[two], pred[two], labels=[benign, ssh], average="macro", zero_division=0
+        )
+        rows.append(row)
+    table = pd.DataFrame(rows).set_index("fold")
+    return (table, predictions) if return_predictions else table
 
 
 def unseen_day_report(model, flows: pd.DataFrame) -> pd.DataFrame:
@@ -441,31 +592,38 @@ def unseen_day_report(model, flows: pd.DataFrame) -> pd.DataFrame:
     return table
 
 
-def final_comparison_table(
-    selection: pd.DataFrame, fingerprint_drop: Mapping[str, float], order: list[str]
-) -> pd.DataFrame:
+def final_comparison_table(selection: pd.DataFrame, nofp_cv: Mapping[str, float], order: list[str]) -> pd.DataFrame:
     """Build the comparison of all algorithms that the report shows as its main results table.
 
     `selection` holds one row per model with the settings re-selected by macro F1 (notebook 04, Step 5),
-    and `fingerprint_drop` the cross-validated macro F1 each model loses without the attacking hosts' TCP
-    settings. I format the scores as text here because the table is read by people: five decimals for
-    the cross-validated score, so k-NN's tiny spread does not print as "1.0 ± 0.0", and the test score
-    with its 95% bootstrap interval in one cell.
+    and `nofp_cv` each model's cross-validated macro F1 after its search is rerun without the attacking
+    hosts' TCP settings (Step 5 (v)). I show that re-tuned score rather than the drop with the original
+    settings, because re-tuning recovers most of the drop and the reader should see what a model achieves
+    when it is built without the fingerprint. I format the scores as text here because the table is read by
+    people: five decimals for the cross-validated score, so k-NN's tiny spread does not print as
+    "1.0 ± 0.0", and the test score with its 95% bootstrap interval in one cell.
     """
+
     def fixed(values: pd.Series, digits: int) -> pd.Series:
         return values.map(f"{{:.{digits}f}}".format)
 
-    # round(v, 4) + 0.0 turns a tiny negative drop into 0.0 rather than printing "-0.0000".
-    drop = pd.Series(fingerprint_drop).map(lambda v: f"{round(v, 4) + 0.0:.4f}")
-    table = pd.DataFrame({
-        "CV macro F1": fixed(selection["cv_f1_macro (macro-selected)"], 5) + " ± " + fixed(selection["cv_f1_macro_std"], 5),
-        "Test accuracy": fixed(selection["test_accuracy"], 5),
-        "Test macro F1 [95% CI]": fixed(selection["test_f1_macro"], 4) + " [" + fixed(selection["test_ci_low"], 4)
-                                  + ", " + fixed(selection["test_ci_high"], 4) + "]",
-        "Test errors (of 15,000)": selection["test_errors"],
-        "Test FTP recall": selection["test_recall_ftp"],
-        "Training time (s)": selection["fit_seconds"].round(2),
-        "Inference (ms / 1,000 flows)": selection["inference_ms_per_1000"].round(2),
-        "Macro F1 drop without host fingerprint": drop,
-    })
+    table = pd.DataFrame(
+        {
+            "CV macro F1": fixed(selection["cv_f1_macro (macro-selected)"], 5)
+            + " ± "
+            + fixed(selection["cv_f1_macro_std"], 5),
+            "Test accuracy": fixed(selection["test_accuracy"], 5),
+            "Test macro F1 [95% CI]": fixed(selection["test_f1_macro"], 4)
+            + " ["
+            + fixed(selection["test_ci_low"], 4)
+            + ", "
+            + fixed(selection["test_ci_high"], 4)
+            + "]",
+            "Test errors (of 15,000)": selection["test_errors"],
+            "Test FTP recall": selection["test_recall_ftp"],
+            "Training time (s)": selection["fit_seconds"].round(2),
+            "Inference (ms / 1,000 flows)": selection["inference_ms_per_1000"].round(2),
+            "CV macro F1 re-tuned without host fingerprint": fixed(pd.Series(nofp_cv), 5),
+        }
+    )
     return table.reindex(order)

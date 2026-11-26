@@ -71,6 +71,10 @@ CATEGORICAL_COLS: tuple[str, ...] = (PROTOCOL_COL,)
 # 0.95 is a conservative setting that only merges near-duplicate columns. Testing both shows whether
 # any loss comes from removing redundancy or from removing genuinely different information.
 CORRELATION_THRESHOLDS: tuple[float, ...] = (0.70, 0.95)
+# Timing columns: durations, inter-arrival times, active/idle periods and per-second rates. They change with
+# network jitter even when two flows exchange exactly the same packets. Dropping them leaves the "shape" of a
+# flow (packet counts, sizes, headers, flags, windows), which I use to group near-identical flows (H1, H2).
+TIMING_COL_PATTERN = r"Duration|IAT|Active|Idle|/s$"
 
 # --- Outputs -------------------------------------------------------------------------------------
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"

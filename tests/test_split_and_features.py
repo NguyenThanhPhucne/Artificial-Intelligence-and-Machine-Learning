@@ -24,14 +24,16 @@ def _toy_flows() -> pd.DataFrame:
     """A small frame with the columns my preprocessing expects, including one constant column."""
     rng = np.random.default_rng(0)
     n = 120
-    return pd.DataFrame({
-        "Dst Port": rng.choice([21.0, 22.0, 80.0], n),
-        "Protocol": rng.choice([6.0, 17.0], n),
-        "Timestamp": ["14/02/2018 10:00:00"] * n,
-        "Flow Duration": rng.exponential(1e5, n),
-        "Tot Fwd Pkts": rng.integers(1, 20, n).astype(float),
-        "Bwd PSH Flags": np.zeros(n),
-    })
+    return pd.DataFrame(
+        {
+            "Dst Port": rng.choice([21.0, 22.0, 80.0], n),
+            "Protocol": rng.choice([6.0, 17.0], n),
+            "Timestamp": ["14/02/2018 10:00:00"] * n,
+            "Flow Duration": rng.exponential(1e5, n),
+            "Tot Fwd Pkts": rng.integers(1, 20, n).astype(float),
+            "Bwd PSH Flags": np.zeros(n),
+        }
+    )
 
 
 @needs_sample
@@ -105,3 +107,31 @@ def test_smote_runs_only_inside_fit():
     pipe.fit(flows, y)
     # imblearn skips samplers at predict time: one prediction per input row, no synthetic rows.
     assert len(pipe.predict(flows)) == len(flows)
+
+
+def test_timing_columns_on_a_toy_frame_keeps_order_and_skips_shape_columns():
+    cols = ["Protocol", "Flow Duration", "Tot Fwd Pkts", "Flow Byts/s", "Init Fwd Win Byts"]
+    assert features.timing_columns(cols) == ["Flow Duration", "Flow Byts/s"]
+
+
+@needs_sample
+def test_timing_columns_on_the_sample_are_27_numeric_columns(split):
+    timing = features.timing_columns(split.X_train.columns)
+    assert len(timing) == 27
+    assert all(pd.api.types.is_numeric_dtype(split.X_train[c]) for c in timing)
+    assert "Init Fwd Win Byts" not in timing and "Timestamp" not in timing
+
+
+@needs_sample
+def test_shape_columns_are_the_model_columns_without_timing(split):
+    shape = features.shape_columns(split.X_train)
+    _, numeric = features.model_columns(split.X_train)
+    assert "Protocol" in shape and "Dst Port" not in shape
+    assert set(shape) == ({"Protocol"} | set(numeric)) - set(features.timing_columns(split.X_train.columns))
+
+
+def test_shape_columns_never_include_the_label_or_text_columns():
+    X = _toy_flows().assign(Label="Benign")
+    shape = features.shape_columns(X)
+    assert config.LABEL_COL not in shape and "Timestamp" not in shape
+    assert shape == ["Protocol", "Tot Fwd Pkts", "Bwd PSH Flags"]

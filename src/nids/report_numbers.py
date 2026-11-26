@@ -9,6 +9,7 @@ produced, and re-running a notebook updates the report on the next build.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 
 from . import config
 
@@ -37,3 +38,14 @@ def record(**values: str | int | float) -> dict[str, str]:
     NUMBERS_JSON.write_text(json.dumps(dict(sorted(stored.items())), indent=1, ensure_ascii=False) + "\n")
     # Returned so the notebook cell that records them also displays them next to the code that computed them.
     return {key: str(value) for key, value in values.items()}
+
+
+def english_list(names: Iterable[str]) -> str:
+    """Join names the way the report lists them: "A", "A and B", "A, B and C"; "" for none.
+
+    Notebooks 03 and 04 both turn lists of model names into report text, so the rule lives here once.
+    """
+    names = list(names)
+    if len(names) <= 1:
+        return "".join(names)
+    return ", ".join(names[:-1]) + " and " + names[-1]
