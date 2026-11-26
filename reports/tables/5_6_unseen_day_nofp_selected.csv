@@ -1,0 +1,4 @@
+true label,flows,predicted Benign,predicted FTP-BruteForce,predicted SSH-Bruteforce
+Benign,20000,1.0,0.0,0.0
+DoS attacks-GoldenEye,5000,1.0,0.0,0.0
+DoS attacks-Slowloris,5000,1.0,0.0,0.0

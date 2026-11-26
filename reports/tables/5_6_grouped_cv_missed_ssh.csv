@@ -1,0 +1,9 @@
+,SSH missed,of which no payload,recall on SSH flows with payload
+Decision Tree,22,20,0.9997798811358133
+Random Forest,22,20,0.9997798811358133
+Gaussian Naive Bayes,22,20,0.9997798811358133
+k-Nearest Neighbours,15,15,1.0
+Logistic Regression,9,7,0.9997798811358133
+Support Vector Machine,5,3,0.9997798811358133
+Gradient Boosting,15,15,1.0
+Multi-layer Perceptron,18,18,1.0

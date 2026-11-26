@@ -1,0 +1,9 @@
+model,cv_f1_macro,cv_f1_macro_std,change vs main,inference_ms_per_1000,selected
+Decision Tree,0.990254,0.019008,-0.005083,0.629756,True
+Random Forest,0.990254,0.019223,-0.005234,7.214172,False
+Gaussian Naive Bayes,0.995034,0.009071,-0.004491,1.227269,False
+k-Nearest Neighbours,0.979276,0.01322,-0.020702,32.165794,False
+Logistic Regression,0.975712,0.019343,-0.007969,1.463022,False
+Support Vector Machine,0.987606,0.016603,-0.00786,2.962297,False
+Gradient Boosting,0.990362,0.019115,-0.005147,7.606597,False
+Multi-layer Perceptron,0.980289,0.021517,-0.015047,2.383575,False

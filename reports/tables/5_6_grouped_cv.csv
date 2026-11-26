@@ -1,0 +1,17 @@
+model,splitter,ftp_recall,ssh_recall_mean,ssh_recall_std,false_alarm_mean,false_alarm_std,macro_f1_mean,macro_f1_std
+Decision Tree,grouped,0.0,0.997584,0.003766,7.9e-05,0.000157,0.99933,0.001027
+Decision Tree,stratified,1.0,0.999671,0.000439,5.9e-05,7.9e-05,0.999833,0.000151
+Random Forest,grouped,0.0,0.997584,0.003766,2e-05,3.9e-05,0.99928,0.001125
+Random Forest,stratified,1.0,0.999671,0.000439,2e-05,3.9e-05,0.999898,0.000132
+Gaussian Naive Bayes,grouped,0.0,0.997584,0.003766,0.0,0.0,0.999285,0.001115
+Gaussian Naive Bayes,stratified,1.0,0.997584,0.001498,0.0,0.0,0.999287,0.000442
+k-Nearest Neighbours,grouped,0.0,0.998353,0.003295,0.000118,0.000236,0.999483,0.001033
+k-Nearest Neighbours,stratified,1.0,0.99989,0.00022,0.0,0.0,0.999968,6.5e-05
+Logistic Regression,grouped,0.0,0.999012,0.00149,9.8e-05,0.000124,0.999629,0.000569
+Logistic Regression,stratified,1.0,0.99978,0.000269,3.9e-05,7.9e-05,0.999925,9.3e-05
+Support Vector Machine,grouped,0.0,0.999451,0.000491,0.000334,0.000464,0.999426,0.000704
+Support Vector Machine,stratified,1.0,0.999671,0.000439,3.9e-05,4.8e-05,0.999866,0.000123
+Gradient Boosting,grouped,0.0,0.998353,0.002778,2e-05,3.9e-05,0.999508,0.000831
+Gradient Boosting,stratified,0.971429,0.999561,0.000538,2e-05,3.9e-05,0.999866,0.000165
+Multi-layer Perceptron,grouped,0.0,0.998023,0.003954,3.9e-05,4.8e-05,0.999405,0.001165
+Multi-layer Perceptron,stratified,1.0,0.999561,0.00064,3.9e-05,4.8e-05,0.999833,0.000178
