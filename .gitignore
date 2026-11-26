@@ -21,3 +21,9 @@ notes_vi/
 dev/
 
 .DS_Store
+
+# Word report sources and output (kept off the public repository before submission)
+report/
+
+# Superseded work moved aside (not deleted); never published
+ERASER/
